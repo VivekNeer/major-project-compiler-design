@@ -433,6 +433,26 @@ class TestCommonSubexpressionElimination:
         # Second ADD should stay as ADD since 'a' was redefined
         assert result[2].opcode == IROpcode.ADD
 
+    def test_invalidate_expr_when_result_var_redefined(self):
+        ir = [
+            IRInstruction(IROpcode.ADD, "t1", "a", "b"),
+            IRInstruction(IROpcode.ADD, "t2", "a", "b"),  # becomes COPY from t1
+            IRInstruction(IROpcode.LOAD_CONST, "t2", "0"),  # redefines t2
+            IRInstruction(IROpcode.ADD, "t3", "a", "b"),
+        ]
+        result = common_subexpression_elimination(ir)
+        # Final expression should not reuse stale t2.
+        assert result[3].opcode == IROpcode.ADD
+
+    def test_negative_constants_not_treated_as_variables(self):
+        ir = [
+            IRInstruction(IROpcode.ADD, "t0", "x", "-1"),
+            IRInstruction(IROpcode.ADD, "t1", "x", "-1"),
+        ]
+        result = common_subexpression_elimination(ir)
+        assert result[1].opcode == IROpcode.COPY
+        assert result[1].src1 == "t0"
+
 
 class TestPassManager:
     def test_no_passes(self):

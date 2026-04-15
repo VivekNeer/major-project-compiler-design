@@ -21,7 +21,7 @@ Example:
 """
 
 from __future__ import annotations
-from compiler.ir import IRInstruction, IROpcode
+from compiler.ir import IRInstruction, IROpcode, is_constant
 
 
 # Opcodes eligible for CSE — pure computations
@@ -43,7 +43,11 @@ def common_subexpression_elimination(
 
     # Track which variables map to which expression key, so we can
     # invalidate when the variable is redefined.
-    var_to_expr_keys: dict[str, list[tuple[IROpcode, str | None, str | None]]] = {}
+    var_to_expr_keys: dict[str, set[tuple[IROpcode, str | None, str | None]]] = {}
+
+    # Track expressions by the variable currently holding their result,
+    # so redefining that variable invalidates stale expression mappings.
+    result_var_to_expr_keys: dict[str, set[tuple[IROpcode, str | None, str | None]]] = {}
 
     result: list[IRInstruction] = []
 
@@ -56,38 +60,53 @@ def common_subexpression_elimination(
         ):
             available_exprs.clear()
             var_to_expr_keys.clear()
+            result_var_to_expr_keys.clear()
             result.append(inst)
             continue
 
         if inst.opcode in _CSE_OPCODES and inst.dest:
+            # Redefining dest invalidates expressions that depended on it,
+            # and expressions previously associated with dest as a result.
+            _invalidate_var(
+                inst.dest,
+                available_exprs,
+                var_to_expr_keys,
+                result_var_to_expr_keys,
+            )
+
             expr_key = (inst.opcode, inst.src1, inst.src2)
 
             if expr_key in available_exprs:
                 # Reuse the previously computed value
                 prev_var = available_exprs[expr_key]
                 result.append(IRInstruction(IROpcode.COPY, inst.dest, prev_var))
-                # The new dest also holds this expression's value
-                available_exprs[expr_key] = inst.dest
             else:
                 result.append(inst)
-                # Record this expression as available
-                available_exprs[expr_key] = inst.dest
 
-            # Invalidate any expressions that used the dest as an operand
-            # (since we're redefining it)
-            _invalidate_var(inst.dest, available_exprs, var_to_expr_keys)
+            # Record where this expression is currently available.
+            _set_available_expr(
+                expr_key,
+                inst.dest,
+                available_exprs,
+                result_var_to_expr_keys,
+            )
 
             # Track operand → expression key mapping for invalidation
             for operand in (inst.src1, inst.src2):
-                if operand and not operand.isdigit():
-                    var_to_expr_keys.setdefault(operand, []).append(expr_key)
+                if operand and not is_constant(operand):
+                    var_to_expr_keys.setdefault(operand, set()).add(expr_key)
 
             continue
 
         # For other instructions, check if they redefine a variable
         defined = inst.defined_var()
         if defined:
-            _invalidate_var(defined, available_exprs, var_to_expr_keys)
+            _invalidate_var(
+                defined,
+                available_exprs,
+                var_to_expr_keys,
+                result_var_to_expr_keys,
+            )
 
         result.append(inst)
 
@@ -97,10 +116,40 @@ def common_subexpression_elimination(
 def _invalidate_var(
     var: str,
     available_exprs: dict[tuple[IROpcode, str | None, str | None], str],
-    var_to_expr_keys: dict[str, list[tuple[IROpcode, str | None, str | None]]],
+    var_to_expr_keys: dict[str, set[tuple[IROpcode, str | None, str | None]]],
+    result_var_to_expr_keys: dict[str, set[tuple[IROpcode, str | None, str | None]]],
 ) -> None:
-    """Remove all available expressions that depend on `var`."""
-    if var in var_to_expr_keys:
-        for key in var_to_expr_keys[var]:
+    """Remove all available expressions that depend on or are stored in `var`."""
+    # Invalidate expressions that use `var` as an operand.
+    for key in var_to_expr_keys.pop(var, set()):
+        holder = available_exprs.pop(key, None)
+        if holder:
+            result_keys = result_var_to_expr_keys.get(holder)
+            if result_keys:
+                result_keys.discard(key)
+                if not result_keys:
+                    del result_var_to_expr_keys[holder]
+
+    # Invalidate expressions whose currently tracked result is `var`.
+    for key in result_var_to_expr_keys.pop(var, set()):
+        if available_exprs.get(key) == var:
             available_exprs.pop(key, None)
-        del var_to_expr_keys[var]
+
+
+def _set_available_expr(
+    key: tuple[IROpcode, str | None, str | None],
+    dest: str,
+    available_exprs: dict[tuple[IROpcode, str | None, str | None], str],
+    result_var_to_expr_keys: dict[str, set[tuple[IROpcode, str | None, str | None]]],
+) -> None:
+    """Track expression availability and keep reverse result mappings in sync."""
+    previous_holder = available_exprs.get(key)
+    if previous_holder and previous_holder != dest:
+        prev_keys = result_var_to_expr_keys.get(previous_holder)
+        if prev_keys:
+            prev_keys.discard(key)
+            if not prev_keys:
+                del result_var_to_expr_keys[previous_holder]
+
+    available_exprs[key] = dest
+    result_var_to_expr_keys.setdefault(dest, set()).add(key)
