@@ -73,6 +73,7 @@ class TestOptimizeEndpoint:
         })
         data = resp.json()
         assert data["error"] is True
+        assert data["phase"] == "optimization"
 
 
 class TestExamplesEndpoint:
@@ -94,6 +95,10 @@ class TestExamplesEndpoint:
 
     def test_get_nonexistent_example(self):
         resp = client.get("/api/examples/nonexistent")
+        assert resp.status_code == 404
+
+    def test_get_example_rejects_traversal(self):
+        resp = client.get("/api/examples/..%5c..%5creadme")
         assert resp.status_code == 404
 
 

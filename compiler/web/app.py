@@ -3,6 +3,7 @@ from __future__ import annotations
 import difflib
 import glob
 import os
+import re
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
@@ -10,9 +11,9 @@ from fastapi.responses import HTMLResponse
 from compiler.lexer import Lexer, LexerError
 from compiler.parser import Parser, ParseError
 from compiler.ir_generator import IRGenerator, IRGeneratorError
-from compiler.ir import format_ir, IROpcode
+from compiler.ir import format_ir
 from compiler.interpreter import execute_ir, InterpreterError
-from compiler.optimizations.pass_manager import PassManager, PASS_NAMES
+from compiler.optimizations.pass_manager import PassManager
 from compiler.benchmarks.metric_collector import count_code_size, estimate_cycles
 from compiler.web.api_models import CompileRequest, OptimizeRequest, BenchmarkRequest
 from compiler.web.templates import INDEX_HTML
@@ -20,7 +21,10 @@ from compiler.ast_nodes import ASTNode
 
 app = FastAPI(title="Compiler Explorer")
 
-PROGRAMS_DIR = os.path.join(os.path.dirname(__file__), "..", "benchmarks", "programs")
+PROGRAMS_DIR = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "benchmarks", "programs")
+)
+EXAMPLE_NAME_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 
 
 # ---------------------------------------------------------------------------
@@ -97,6 +101,19 @@ def make_error(phase: str, e: Exception) -> dict:
     return {"error": True, "phase": phase, "message": str(e), "line": line, "col": col}
 
 
+def _error_phase(e: Exception) -> str:
+    """Map exceptions to stable API phase names."""
+    if isinstance(e, LexerError):
+        return "lexer"
+    if isinstance(e, ParseError):
+        return "parser"
+    if isinstance(e, IRGeneratorError):
+        return "ir_generator"
+    if isinstance(e, ValueError):
+        return "optimization"
+    return "runtime"
+
+
 def get_example_description(source: str) -> str:
     """Extract first comment line as description."""
     for line in source.splitlines():
@@ -159,8 +176,7 @@ def optimize(req: OptimizeRequest):
         pm = PassManager(req.pass_order)
         opt_ir = pm.run(base_ir)
     except (LexerError, ParseError, IRGeneratorError, ValueError) as e:
-        phase = type(e).__name__.replace("Error", "").lower()
-        return make_error(phase, e)
+        return make_error(_error_phase(e), e)
 
     base_text = format_ir(base_ir)
     opt_text = format_ir(opt_ir)
@@ -206,8 +222,7 @@ def benchmark(req: BenchmarkRequest):
         ast = Parser(tokens).parse()
         base_ir = IRGenerator().generate(ast)
     except (LexerError, ParseError, IRGeneratorError) as e:
-        phase = type(e).__name__.replace("Error", "").lower()
-        return make_error(phase, e)
+        return make_error(_error_phase(e), e)
 
     base_exec = execute_ir(base_ir)
     orderings = PassManager.all_full_orderings()
@@ -254,7 +269,13 @@ def list_examples():
 
 @app.get("/api/examples/{name}")
 def get_example(name: str):
-    filepath = os.path.join(PROGRAMS_DIR, f"{name}.c")
+    if not EXAMPLE_NAME_RE.fullmatch(name):
+        raise HTTPException(status_code=404, detail=f"Example '{name}' not found")
+
+    filepath = os.path.abspath(os.path.join(PROGRAMS_DIR, f"{name}.c"))
+    if os.path.commonpath([PROGRAMS_DIR, filepath]) != PROGRAMS_DIR:
+        raise HTTPException(status_code=404, detail=f"Example '{name}' not found")
+
     if not os.path.exists(filepath):
         raise HTTPException(status_code=404, detail=f"Example '{name}' not found")
     with open(filepath, "r") as f:
