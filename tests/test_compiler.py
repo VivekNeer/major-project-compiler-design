@@ -693,8 +693,22 @@ class TestAlgebraicSimplification:
     def test_or_with_zero(self):
         ir = [IRInstruction(IROpcode.OR, "t0", "x", "0")]
         result = algebraic_simplification(ir)
-        assert result[0].opcode == IROpcode.COPY
-        assert result[0].src1 == "x"
+        assert result[0].opcode == IROpcode.OR
+
+    def test_and_idempotent_not_rewritten(self):
+        ir = [IRInstruction(IROpcode.AND, "t0", "x", "x")]
+        result = algebraic_simplification(ir)
+        assert result[0].opcode == IROpcode.AND
+
+    def test_or_idempotent_not_rewritten(self):
+        ir = [IRInstruction(IROpcode.OR, "t0", "x", "x")]
+        result = algebraic_simplification(ir)
+        assert result[0].opcode == IROpcode.OR
+
+    def test_and_with_one_not_rewritten(self):
+        ir = [IRInstruction(IROpcode.AND, "t0", "x", "1")]
+        result = algebraic_simplification(ir)
+        assert result[0].opcode == IROpcode.AND
 
     def test_neg_constant(self):
         ir = [IRInstruction(IROpcode.NEG, "t0", "5")]

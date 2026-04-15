@@ -12,8 +12,6 @@ Identities:
   - Negation of const:  -(K)  ->  (-K)
   - Redundant compare:  x == x  ->  1,   x != x  ->  0
   - Comparison folding:  x < x  ->  0,   x <= x  ->  1
-  - Idempotent ops:     x && x  ->  x,   x || x  ->  x
-  - Absorption:         x && 1  ->  x,   x || 0  ->  x
   - Annihilation:       x && 0  ->  0,   x || 1  ->  1
 
 Phase-ordering interactions:
@@ -90,21 +88,11 @@ def _simplify_and(inst: IRInstruction) -> IRInstruction:
     """Simplify AND operations."""
     s1, s2 = inst.src1, inst.src2
 
-    # x && x -> x (idempotent)
-    if s1 and s2 and s1 == s2:
-        return IRInstruction(IROpcode.COPY, inst.dest, s1)
-
     # x && 0 -> 0
     if s1 and is_constant(s1) and const_value(s1) == 0:
         return IRInstruction(IROpcode.LOAD_CONST, inst.dest, "0")
     if s2 and is_constant(s2) and const_value(s2) == 0:
         return IRInstruction(IROpcode.LOAD_CONST, inst.dest, "0")
-
-    # x && 1 -> x (when used as boolean)
-    if s1 and is_constant(s1) and const_value(s1) != 0:
-        return IRInstruction(IROpcode.COPY, inst.dest, s2)
-    if s2 and is_constant(s2) and const_value(s2) != 0:
-        return IRInstruction(IROpcode.COPY, inst.dest, s1)
 
     return inst
 
@@ -113,20 +101,10 @@ def _simplify_or(inst: IRInstruction) -> IRInstruction:
     """Simplify OR operations."""
     s1, s2 = inst.src1, inst.src2
 
-    # x || x -> x (idempotent)
-    if s1 and s2 and s1 == s2:
-        return IRInstruction(IROpcode.COPY, inst.dest, s1)
-
     # x || 1 -> 1
     if s1 and is_constant(s1) and const_value(s1) != 0:
         return IRInstruction(IROpcode.LOAD_CONST, inst.dest, "1")
     if s2 and is_constant(s2) and const_value(s2) != 0:
         return IRInstruction(IROpcode.LOAD_CONST, inst.dest, "1")
-
-    # x || 0 -> x
-    if s1 and is_constant(s1) and const_value(s1) == 0:
-        return IRInstruction(IROpcode.COPY, inst.dest, s2)
-    if s2 and is_constant(s2) and const_value(s2) == 0:
-        return IRInstruction(IROpcode.COPY, inst.dest, s1)
 
     return inst
