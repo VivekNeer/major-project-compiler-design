@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m compiler.main compiler/benchmarks/programs/factorial.c)",
+      "Bash(python -m compiler.main compiler/benchmarks/programs/factorial.c --optimize CF,DCE,CSE)",
+      "Bash(python -c \"import matplotlib; print\\(matplotlib.__version__\\)\")",
+      "Bash(pip install:*)",
+      "Bash(python -m compiler.main --benchmark-all --output-dir benchmark_results)",
+      "Bash(python -m pytest tests/test_compiler.py -v)",
+      "Bash(curl -s \"https://scholar.google.com/scholar?q=phase+ordering+problem+compiler+optimization&hl=en\" -H \"User-Agent: Mozilla/5.0\")",
+      "WebSearch",
+      "WebFetch(domain:ar5iv.labs.arxiv.org)",
+      "WebFetch(domain:users.elis.ugent.be)",
+      "WebFetch(domain:www.elis.ugent.be)",
+      "WebFetch(domain:www.cs.tufts.edu)",
+      "WebFetch(domain:uwplse.org)",
+      "WebFetch(domain:www.ittc.ku.edu)",
+      "WebFetch(domain:arxiv.org)",
+      "WebFetch(domain:classpages.cselabs.umn.edu)",
+      "WebFetch(domain:www.eecis.udel.edu)",
+      "WebFetch(domain:web.eecs.utk.edu)",
+      "WebFetch(domain:vhosts.eecs.umich.edu)",
+      "WebFetch(domain:www.slideserve.com)",
+      "WebFetch(domain:issl-uk.com)",
+      "Bash(python -m compiler.main compiler/benchmarks/programs/factorial.c --optimize CF,CP,SR,AS,DCE,CSE)",
+      "Bash(python -c ':*)",
+      "Bash(python -m compiler.main compiler/benchmarks/programs/factorial.c --benchmark --output-dir benchmark_results)",
+      "Bash(bash:*)",
+      "Bash(python:*)"
+    ]
+  }
+}
