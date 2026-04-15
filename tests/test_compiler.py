@@ -26,7 +26,13 @@ from compiler.optimizations.copy_propagation import copy_propagation
 from compiler.optimizations.strength_reduction import strength_reduction
 from compiler.optimizations.algebraic_simplification import algebraic_simplification
 from compiler.optimizations.pass_manager import PassManager
-from compiler.benchmarks.metric_collector import collect_metrics, count_code_size, estimate_cycles
+from compiler.benchmarks.metric_collector import (
+    BenchmarkMetrics,
+    collect_metrics,
+    count_code_size,
+    estimate_cycles,
+)
+from compiler.benchmarks.visualizer import _build_pass_interaction_matrix
 from compiler.interpreter import execute_ir, IRInterpreter
 
 
@@ -487,6 +493,41 @@ class TestPassManager:
         desc = pm.describe()
         assert "Constant Folding" in desc
         assert "Dead Code Elimination" in desc
+
+
+class TestVisualizer:
+    def test_pass_interaction_matrix_uses_relative_ordering(self):
+        def make_metrics(order, size):
+            return BenchmarkMetrics(
+                pass_order=order,
+                pass_order_label=" -> ".join(order),
+                code_size=size,
+                estimated_cycles=float(size),
+                total_instructions=size,
+                instruction_breakdown={
+                    "arithmetic": 0,
+                    "comparison": 0,
+                    "logical": 0,
+                    "data_movement": 0,
+                    "control_flow": 0,
+                    "function": 0,
+                    "io": 0,
+                },
+            )
+
+        results = [
+            make_metrics(["A", "B", "C"], 10),
+            make_metrics(["C", "A", "B"], 12),
+            make_metrics(["B", "A", "C"], 20),
+            make_metrics(["C", "B", "A"], 18),
+        ]
+
+        passes, matrix = _build_pass_interaction_matrix(results)
+        i_a = passes.index("A")
+        i_b = passes.index("B")
+
+        assert matrix[i_a][i_b] == pytest.approx(-8.0)
+        assert matrix[i_b][i_a] == pytest.approx(8.0)
 
 
 # ======================================================================

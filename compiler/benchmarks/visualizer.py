@@ -135,33 +135,13 @@ def plot_pass_interaction_heatmap(
     _ensure_matplotlib()
     plt, np = _plt, _np
 
-    # Build lookup: tuple(pass_order) -> code_size
-    lookup: dict[tuple[str, ...], int] = {}
-    for r in results:
-        key = tuple(r.pass_order)
-        lookup[key] = r.code_size
-
-    # Get unique pass names
-    all_passes: set[str] = set()
-    for r in results:
-        all_passes.update(r.pass_order)
-    passes = sorted(all_passes)
+    passes, matrix_rows = _build_pass_interaction_matrix(results)
 
     n = len(passes)
     if n < 2:
         return output_path
 
-    matrix = np.zeros((n, n))
-
-    for i, a in enumerate(passes):
-        for j, b in enumerate(passes):
-            if i == j:
-                matrix[i, j] = 0
-            else:
-                ab = lookup.get((a, b), None)
-                ba = lookup.get((b, a), None)
-                if ab is not None and ba is not None:
-                    matrix[i, j] = ab - ba  # negative = A->B is better
+    matrix = np.array(matrix_rows, dtype=float)
 
     fig, ax = plt.subplots(figsize=(max(7, n * 1.2), max(6, n)))
     vmax = max(abs(matrix.min()), abs(matrix.max()), 1)
@@ -187,6 +167,51 @@ def plot_pass_interaction_heatmap(
     fig.savefig(output_path, dpi=150)
     plt.close(fig)
     return output_path
+
+
+def _build_pass_interaction_matrix(
+    results: Sequence[BenchmarkMetrics],
+) -> tuple[list[str], list[list[float]]]:
+    """Build pairwise interaction matrix from full-ordering benchmark results.
+
+    For each pair (A, B), we compare the mean code size of runs where A appears
+    before B against runs where B appears before A.
+    """
+    all_passes: set[str] = set()
+    for r in results:
+        all_passes.update(r.pass_order)
+    passes = sorted(all_passes)
+
+    n = len(passes)
+    matrix = [[0.0 for _ in range(n)] for _ in range(n)]
+    if n < 2:
+        return passes, matrix
+
+    for i, a in enumerate(passes):
+        for j, b in enumerate(passes):
+            if i == j:
+                continue
+
+            a_before_b: list[int] = []
+            b_before_a: list[int] = []
+
+            for r in results:
+                if a not in r.pass_order or b not in r.pass_order:
+                    continue
+
+                pos_a = r.pass_order.index(a)
+                pos_b = r.pass_order.index(b)
+                if pos_a < pos_b:
+                    a_before_b.append(r.code_size)
+                else:
+                    b_before_a.append(r.code_size)
+
+            if a_before_b and b_before_a:
+                mean_ab = sum(a_before_b) / len(a_before_b)
+                mean_ba = sum(b_before_a) / len(b_before_a)
+                matrix[i][j] = mean_ab - mean_ba
+
+    return passes, matrix
 
 
 def plot_category_breakdown(
