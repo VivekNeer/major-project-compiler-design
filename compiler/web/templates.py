@@ -251,6 +251,7 @@ let exploreBaseIR = '';
 let exploreOptData = null;
 let irViewMode = 'base';
 let comparing = false;
+let baselineSource = '';
 
 const STEPS = ['source','tokens','ast','symbols','ir','optimize','execute'];
 const STEP_LABELS = ['Source','Tokens','AST','Symbols','IR','Optimize','Execute'];
@@ -301,6 +302,10 @@ async function loadExample(name) {
     const data = await resp.json();
     document.getElementById('source-editor').value = data.source;
     document.getElementById('explore-editor').value = data.source;
+    baselineSource = '';
+    exploreBaseIR = '';
+    baselineMetrics = null;
+    exploreOptData = null;
   } catch(e) { console.error(e); }
 }
 
@@ -342,6 +347,7 @@ async function compile() {
     document.getElementById('btn-next').disabled = false;
     // Also store base IR text for explore mode
     exploreBaseIR = compileData.ir_text;
+    baselineSource = source;
     baselineMetrics = {code_size: compileData.ir.length, estimated_cycles: 0, dynamic_count: 0};
     if (currentMode === 'explore') {
       document.getElementById('explore-ir').innerHTML = renderIRLines(compileData.ir_text, 'kept');
@@ -353,7 +359,10 @@ async function compile() {
 
 function showError(err) {
   const content = document.getElementById(currentMode==='learn'?'step-content':'explore-ir');
-  content.innerHTML = `<div class="error-box"><h4>${err.phase} error${err.line?' at line '+err.line:''}</h4><p>${err.message}</p></div>`;
+  const phase = escapeHtml(err.phase || 'unknown');
+  const lineInfo = err.line ? ` at line ${escapeHtml(String(err.line))}` : '';
+  const message = escapeHtml(err.message || 'Unknown error');
+  content.innerHTML = `<div class="error-box"><h4>${phase} error${lineInfo}</h4><p>${message}</p></div>`;
 }
 
 function goToStep(i) {
@@ -400,19 +409,18 @@ function renderStep(i) {
 function renderTokens(tokens) {
   return '<div class="token-list">' + tokens.map(t => {
     const cls = TOKEN_CLASSES[t.type] || 'operator';
-    return `<span class="token-chip ${cls}" title="${t.type} at L${t.line}:${t.col}">${t.value}</span>`;
+    return `<span class="token-chip ${cls}" title="${escapeHtml(t.type)} at L${escapeHtml(String(t.line))}:${escapeHtml(String(t.col))}">${escapeHtml(t.value)}</span>`;
   }).join('') + '</div>';
 }
 
 function renderAST(node, depth) {
   if (!node) return '';
-  const fields = node.fields ? Object.entries(node.fields).filter(([k,v])=>v!==null&&v!==undefined&&!(Array.isArray(v)&&v.length===0)).map(([k,v])=>`<span class="ast-field">${k}=${JSON.stringify(v)}</span>`).join(' ') : '';
-  const loc = `<span class="ast-loc">L${node.line}:${node.col}</span>`;
+  const fields = node.fields ? Object.entries(node.fields).filter(([k,v])=>v!==null&&v!==undefined&&!(Array.isArray(v)&&v.length===0)).map(([k,v])=>`<span class="ast-field">${escapeHtml(String(k))}=${escapeHtml(JSON.stringify(v))}</span>`).join(' ') : '';
+  const loc = `<span class="ast-loc">L${escapeHtml(String(node.line))}:${escapeHtml(String(node.col))}</span>`;
   const children = (node.children||[]).map(c => renderAST(c, depth+1)).join('');
-  const id = 'ast-' + Math.random().toString(36).substr(2,6);
   return `<div class="ast-node">
     <div class="ast-node-header" onclick="this.parentElement.querySelector('.ast-children')?.classList.toggle('hidden')">
-      <span class="ast-type">${node.type}</span> ${fields} ${loc}
+      <span class="ast-type">${escapeHtml(node.type)}</span> ${fields} ${loc}
     </div>
     ${children ? `<div class="ast-children">${children}</div>` : ''}
   </div>`;
@@ -421,7 +429,7 @@ function renderAST(node, depth) {
 function renderSymbols(symbols) {
   if (!symbols.length) return '<p style="color:var(--subtext)">No symbols declared.</p>';
   return `<table class="sym-table"><thead><tr><th>Name</th><th>Type</th><th>Scope</th><th>IR Name</th></tr></thead><tbody>` +
-    symbols.map(s => `<tr><td>${s.name}</td><td>${s.type}</td><td>${s.scope}</td><td style="font-family:var(--font-mono)">${s.ir_name}</td></tr>`).join('') +
+    symbols.map(s => `<tr><td>${escapeHtml(String(s.name))}</td><td>${escapeHtml(String(s.type))}</td><td>${escapeHtml(String(s.scope))}</td><td style="font-family:var(--font-mono)">${escapeHtml(String(s.ir_name))}</td></tr>`).join('') +
     '</tbody></table>';
 }
 
@@ -443,11 +451,11 @@ async function renderOptimizeStep(el) {
   try {
     const resp = await fetch('/api/optimize', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source, pass_order:['CF','CP','SR','AS','DCE','CSE']})});
     const data = await resp.json();
-    if (data.error) { el.innerHTML = `<div class="error-box"><h4>${data.phase} error</h4><p>${data.message}</p></div>`; return; }
+    if (data.error) { el.innerHTML = `<div class="error-box"><h4>${escapeHtml(data.phase)} error</h4><p>${escapeHtml(data.message)}</p></div>`; return; }
     el.innerHTML = `
-      <div style="margin-bottom:8px;font-weight:600;color:var(--blue)">Pass Order: ${data.pass_order.join(' -> ')}</div>
+      <div style="margin-bottom:8px;font-weight:600;color:var(--blue)">Pass Order: ${escapeHtml(data.pass_order.join(' -> '))}</div>
       <div class="ir-view" style="max-height:300px;overflow:auto;">${renderDiffLines(data.diff)}</div>
-      <div class="explanation" style="margin-top:12px"><h4>What changed</h4><p>${data.explanation}</p></div>
+      <div class="explanation" style="margin-top:12px"><h4>What changed</h4><p>${escapeHtml(data.explanation)}</p></div>
     `;
   } catch(e) { el.innerHTML = `<p style="color:var(--red)">Error: ${e.message}</p>`; }
 }
@@ -458,7 +466,7 @@ async function renderExecuteStep(el) {
   try {
     const resp = await fetch('/api/optimize', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source, pass_order:['CF','CP','SR','AS','DCE','CSE']})});
     const data = await resp.json();
-    if (data.error) { el.innerHTML = `<div class="error-box"><h4>Error</h4><p>${data.message}</p></div>`; return; }
+    if (data.error) { el.innerHTML = `<div class="error-box"><h4>Error</h4><p>${escapeHtml(data.message)}</p></div>`; return; }
     const baseResp = await fetch('/api/optimize', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source, pass_order:[]})});
     const baseData = await baseResp.json();
     el.innerHTML = `
@@ -468,7 +476,7 @@ async function renderExecuteStep(el) {
         <div class="metric-card"><div class="metric-value">${baseData.metrics.dynamic_count} -> ${data.metrics.dynamic_count}</div><div class="metric-label">Dynamic Insts</div></div>
       </div>
       <div class="output-box">
-        <strong>Output:</strong> <span class="output-value">[${data.output.join(', ')}]</span>
+        <strong>Output:</strong> <span class="output-value">[${escapeHtml(data.output.join(', '))}]</span>
         <span class="${data.output_correct?'output-correct':'output-incorrect'}">${data.output_correct?' Correct':' MISMATCH'}</span>
       </div>
     `;
@@ -479,9 +487,9 @@ async function renderExecuteStep(el) {
 function renderPassChips() {
   const container = document.getElementById('pass-chips');
   container.innerHTML = passOrder.map((p, i) =>
-    `<div class="pass-chip ${PASS_COLORS[p]}" draggable="true" data-idx="${i}"
+    `<div class="pass-chip ${PASS_COLORS[p]}" draggable="true" data-idx="${i}" tabindex="0" role="button"
       ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="drop(event)" ondragend="dragEnd(event)"
-      title="${PASS_FULL[p]}">${p}</div>`
+      onkeydown="chipKeydown(event)" title="${escapeHtml(PASS_FULL[p])}" aria-label="Move ${escapeHtml(PASS_FULL[p])} with arrow keys">${escapeHtml(p)}</div>`
   ).join('');
 }
 
@@ -499,22 +507,78 @@ function drop(e) {
   dragIdx = null;
 }
 
+function chipKeydown(e) {
+  const idx = Number(e.target.dataset.idx);
+  if (Number.isNaN(idx)) return;
+  if (e.key === 'ArrowLeft' && idx > 0) {
+    e.preventDefault();
+    const item = passOrder.splice(idx, 1)[0];
+    passOrder.splice(idx - 1, 0, item);
+    renderPassChips();
+    focusChip(idx - 1);
+  }
+  if (e.key === 'ArrowRight' && idx < passOrder.length - 1) {
+    e.preventDefault();
+    const item = passOrder.splice(idx, 1)[0];
+    passOrder.splice(idx + 1, 0, item);
+    renderPassChips();
+    focusChip(idx + 1);
+  }
+}
+
+function focusChip(idx) {
+  const chip = document.querySelector(`.pass-chip[data-idx="${idx}"]`);
+  if (chip) chip.focus();
+}
+
+async function refreshExploreBaselineIfNeeded(source) {
+  if (baselineSource === source && compileData && exploreBaseIR) {
+    return true;
+  }
+
+  const resp = await fetch('/api/compile', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({source}),
+  });
+  const data = await resp.json();
+  if (data.error) {
+    showError(data);
+    return false;
+  }
+
+  compileData = data;
+  exploreBaseIR = data.ir_text;
+  baselineSource = source;
+  document.getElementById('explore-ir').innerHTML = renderIRLines(exploreBaseIR, 'kept');
+
+  const baseResp = await fetch('/api/optimize', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({source, pass_order:[]}),
+  });
+  const baseData = await baseResp.json();
+  if (baseData.error) {
+    showError(baseData);
+    return false;
+  }
+
+  baselineMetrics = baseData.metrics;
+  return true;
+}
+
 async function applyPasses() {
   const source = document.getElementById('explore-editor').value;
   if (!source.trim()) return;
-  // First compile to get baseline if needed
-  if (!exploreBaseIR) {
-    await compile();
-    if (!compileData || compileData.error) return;
-  }
+
   try {
+    const baselineReady = await refreshExploreBaselineIfNeeded(source);
+    if (!baselineReady) return;
+
     const resp = await fetch('/api/optimize', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source, pass_order: passOrder})});
     exploreOptData = await resp.json();
     if (exploreOptData.error) { showError(exploreOptData); return; }
-    // Also get baseline metrics
-    const baseResp = await fetch('/api/optimize', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source, pass_order:[]})});
-    const baseData = await baseResp.json();
-    baselineMetrics = baseData.metrics;
+
     updateExploreView();
   } catch(e) { console.error(e); }
 }
@@ -532,11 +596,11 @@ function updateExploreView() {
   document.getElementById('m-cycles-bar').style.width = (b.estimated_cycles?Math.min(100,m.estimated_cycles/b.estimated_cycles*100):100)+'%';
   document.getElementById('m-dynamic-bar').style.width = (b.dynamic_count?Math.min(100,m.dynamic_count/b.dynamic_count*100):100)+'%';
   // Output
-  document.getElementById('explore-output').innerHTML = `<strong>Output:</strong> <span class="output-value">[${exploreOptData.output.join(', ')}]</span> <span class="${exploreOptData.output_correct?'output-correct':'output-incorrect'}">${exploreOptData.output_correct?'Correct':'MISMATCH'}</span>`;
+  document.getElementById('explore-output').innerHTML = `<strong>Output:</strong> <span class="output-value">[${escapeHtml(exploreOptData.output.join(', '))}]</span> <span class="${exploreOptData.output_correct?'output-correct':'output-incorrect'}">${exploreOptData.output_correct?'Correct':'MISMATCH'}</span>`;
   // Explanation
   const expEl = document.getElementById('explore-explanation');
   expEl.classList.remove('hidden');
-  expEl.innerHTML = `<h4>Pass Order: ${exploreOptData.pass_order.join(' -> ')}</h4><p>${exploreOptData.explanation}</p>`;
+  expEl.innerHTML = `<h4>Pass Order: ${escapeHtml(exploreOptData.pass_order.join(' -> '))}</h4><p>${escapeHtml(exploreOptData.explanation)}</p>`;
 }
 
 function setIRView(mode) {
@@ -557,28 +621,51 @@ function setIRView(mode) {
 }
 
 function toggleCompare() {
-  comparing = !comparing;
-  document.getElementById('btn-compare').textContent = comparing ? 'Exit Compare' : 'Compare';
-  // Simple compare: show a prompt for second ordering
-  if (comparing && exploreOptData) {
+  const btn = document.getElementById('btn-compare');
+  if (!comparing) {
+    if (!exploreOptData) return;
+
     const second = prompt('Enter second pass order (comma-separated):', 'DCE,CF,CSE,CP,SR,AS');
-    if (!second) { comparing=false; return; }
+    if (!second) {
+      comparing = false;
+      btn.textContent = 'Compare';
+      return;
+    }
+
     const source = document.getElementById('explore-editor').value;
     fetch('/api/optimize', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source, pass_order:second.split(',')})})
-    .then(r=>r.json()).then(data2 => {
-      const el = document.getElementById('explore-ir');
-      el.innerHTML = `
-        <div class="compare-layout">
-          <div><div class="compare-header"><span class="compare-label compare-a">A: ${exploreOptData.pass_order.join('->')}</span> (size:${exploreOptData.metrics.code_size})</div>
-            ${renderIRLines(exploreOptData.optimized_ir_text,'kept')}</div>
-          <div><div class="compare-header"><span class="compare-label compare-b">B: ${data2.pass_order.join('->')}</span> (size:${data2.metrics.code_size})</div>
-            ${renderIRLines(data2.optimized_ir_text,'kept')}</div>
-        </div>`;
-    });
+      .then(r=>r.json())
+      .then(data2 => {
+        if (data2.error) {
+          comparing = false;
+          btn.textContent = 'Compare';
+          showError(data2);
+          return;
+        }
+
+        comparing = true;
+        btn.textContent = 'Exit Compare';
+        const el = document.getElementById('explore-ir');
+        el.innerHTML = `
+          <div class="compare-layout">
+            <div><div class="compare-header"><span class="compare-label compare-a">A: ${escapeHtml(exploreOptData.pass_order.join('->'))}</span> (size:${escapeHtml(String(exploreOptData.metrics.code_size))})</div>
+              ${renderIRLines(exploreOptData.optimized_ir_text,'kept')}</div>
+            <div><div class="compare-header"><span class="compare-label compare-b">B: ${escapeHtml(data2.pass_order.join('->'))}</span> (size:${escapeHtml(String(data2.metrics.code_size))})</div>
+              ${renderIRLines(data2.optimized_ir_text,'kept')}</div>
+          </div>`;
+      })
+      .catch(() => {
+        comparing = false;
+        btn.textContent = 'Compare';
+      });
+  } else {
+    comparing = false;
+    btn.textContent = 'Compare';
+    setIRView(irViewMode);
   }
 }
 
-function escapeHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function escapeHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 </script>
 </body>
 </html>"""
