@@ -1,5 +1,4 @@
 """Tests for the web API endpoints."""
-import pytest
 from fastapi.testclient import TestClient
 from compiler.web.app import app
 
