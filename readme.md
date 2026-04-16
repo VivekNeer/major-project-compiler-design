@@ -5,6 +5,7 @@ A complete compiler infrastructure for a C subset language with 6 reorderable op
 ## Features
 
 ### Compiler Pipeline
+
 - **Lexer** -- tokenizer with line/column tracking, single-line and block comments
 - **Recursive Descent Parser** -- 6-level operator precedence, full error reporting
 - **AST** -- 15 node types as Python dataclasses
@@ -14,37 +15,39 @@ A complete compiler infrastructure for a C subset language with 6 reorderable op
 
 ### 6 Optimization Passes
 
-| Pass | Abbr | Description |
-|------|------|-------------|
-| Constant Folding | CF | Evaluates compile-time constant expressions |
-| Dead Code Elimination | DCE | Removes unused assignments and unreachable code |
-| Common Subexpression Elimination | CSE | Reuses previously computed expressions |
-| Copy Propagation | CP | Substitutes copy chains to enable further optimizations |
-| Strength Reduction | SR | Replaces expensive ops with cheaper equivalents (`x*2` -> `x+x`) |
-| Algebraic Simplification | AS | Applies identities (`x==x` -> 1, `x&&0` -> 0) |
+| Pass                             | Abbr | Description                                                      |
+| -------------------------------- | ---- | ---------------------------------------------------------------- |
+| Constant Folding                 | CF   | Evaluates compile-time constant expressions                      |
+| Dead Code Elimination            | DCE  | Removes unused assignments and unreachable code                  |
+| Common Subexpression Elimination | CSE  | Reuses previously computed expressions                           |
+| Copy Propagation                 | CP   | Substitutes copy chains to enable further optimizations          |
+| Strength Reduction               | SR   | Replaces expensive ops with cheaper equivalents (`x*2` -> `x+x`) |
+| Algebraic Simplification         | AS   | Applies identities (`x==x` -> 1, `x&&0` -> 0)                    |
 
 The **Pass Manager** generates all 721 full permutations for exhaustive phase-ordering analysis.
 
 ### 8 MiBench-Adapted Benchmarks
 
-| Program | Source | Characteristic |
-|---------|--------|---------------|
-| bitcount | MiBench automotive/bitcnts | Loop + conditional + modular arithmetic |
-| collatz | MiBench automotive patterns | Unpredictable branching |
-| factorial | MiBench basicmath | Multiplication loops + dead code opportunities |
-| fibonacci | MiBench basicmath | Iterative loop + variable updates |
-| gcd | MiBench basicmath | Euclidean algorithm with modulo |
-| isqrt | MiBench automotive/basicmath | Newton's method convergence |
-| power | MiBench security/blowfish | Square-and-multiply modular exponentiation |
-| sha_mix | MiBench security/sha | Iterative integer mixing with nested conditionals |
+| Program   | Source                       | Characteristic                                    |
+| --------- | ---------------------------- | ------------------------------------------------- |
+| bitcount  | MiBench automotive/bitcnts   | Loop + conditional + modular arithmetic           |
+| collatz   | MiBench automotive patterns  | Unpredictable branching                           |
+| factorial | MiBench basicmath            | Multiplication loops + dead code opportunities    |
+| fibonacci | MiBench basicmath            | Iterative loop + variable updates                 |
+| gcd       | MiBench basicmath            | Euclidean algorithm with modulo                   |
+| isqrt     | MiBench automotive/basicmath | Newton's method convergence                       |
+| power     | MiBench security/blowfish    | Square-and-multiply modular exponentiation        |
+| sha_mix   | MiBench security/sha         | Iterative integer mixing with nested conditionals |
 
 ### Benchmarking & Visualization
+
 - 3 metric types: static code size, weighted cycle estimate (ARM Cortex-M cost model), dynamic instruction count
 - 7 visualization types: Pareto scatter, normalized bars, pass interaction heatmap, category breakdown, reduction heatmap, dynamic vs static, cross-program box plots
 - Geometric mean normalization per Fleming & Wallace (1986)
 - Correctness validation: every ordering verified against baseline output
 
 ### Interactive Learning Tool (Web UI)
+
 - **Learn Mode** -- step-through visualization of every compiler phase (Tokens, AST, Symbol Table, IR, Optimization Diff, Execution)
 - **Explore Mode** -- drag-and-drop pass reordering with instant IR updates and metrics
 - 8 preloaded benchmark programs
@@ -52,7 +55,7 @@ The **Pass Manager** generates all 721 full permutations for exhaustive phase-or
 
 ## Project Structure
 
-```
+```text
 compiler/
   lexer.py                    # Tokenizer
   parser.py                   # Recursive descent parser
@@ -86,12 +89,13 @@ tests/
 ## Setup
 
 ### Prerequisites
+
 - Python 3.10+
 
 ### Installation
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/VivekNeer/major-project-compiler-design.git
 cd major-project-compiler-design
 pip install -r requirements.txt
 ```
@@ -99,26 +103,31 @@ pip install -r requirements.txt
 ## Usage
 
 ### Compile a program
+
 ```bash
-python -m compiler.main program.c
+python -m compiler.main compiler/benchmarks/programs/factorial.c
 ```
 
 ### Compile with specific optimization passes
+
 ```bash
-python -m compiler.main program.c --optimize CF,CP,SR,AS,DCE,CSE
+python -m compiler.main compiler/benchmarks/programs/factorial.c --optimize CF,CP,SR,AS,DCE,CSE
 ```
 
 ### Show tokens and AST
+
 ```bash
-python -m compiler.main program.c --show-tokens --show-ast
+python -m compiler.main compiler/benchmarks/programs/factorial.c --show-tokens --show-ast
 ```
 
 ### Benchmark a single program (all 721 orderings)
+
 ```bash
-python -m compiler.main program.c --benchmark
+python -m compiler.main compiler/benchmarks/programs/factorial.c --benchmark
 ```
 
 ### Benchmark all 8 programs with full analysis
+
 ```bash
 python -m compiler.main --benchmark-all --output-dir benchmark_results
 ```
@@ -126,9 +135,11 @@ python -m compiler.main --benchmark-all --output-dir benchmark_results
 This generates 54 publication-quality plots and a geometric mean summary table.
 
 ### Launch the interactive learning tool
+
 ```bash
 python -m compiler.web.app
 ```
+
 Open `http://localhost:8080` in your browser.
 
 ## Running Tests
@@ -167,6 +178,7 @@ int main() {
 ```
 
 **Supported constructs:**
+
 - `int` type, integer literals, arithmetic (`+`, `-`, `*`, `/`, `%`)
 - Comparison (`==`, `!=`, `<`, `>`, `<=`, `>=`), logical (`&&`, `||`, `!`)
 - `if`/`else`, `while` loops, block scoping `{ }`
@@ -175,16 +187,16 @@ int main() {
 
 ## Key Research Results
 
-| Program | Baseline | Best Optimized | Code Size Reduction |
-|---------|----------|---------------|-------------------|
-| factorial | 40 insts | 16 insts | 60.0% |
-| isqrt | 50 insts | 27 insts | 46.0% |
-| sha_mix | 106 insts | 68 insts | 35.8% |
-| power | 71 insts | 47 insts | 33.8% |
-| fibonacci | 22 insts | 13 insts | 40.9% |
-| bitcount | 33 insts | 19 insts | 42.4% |
-| collatz | 42 insts | 26 insts | 38.1% |
-| gcd | 21 insts | 14 insts | 33.3% |
+| Program   | Baseline  | Best Optimized | Code Size Reduction |
+| --------- | --------- | -------------- | ------------------- |
+| factorial | 40 insts  | 16 insts       | 60.0%               |
+| isqrt     | 50 insts  | 27 insts       | 46.0%               |
+| sha_mix   | 106 insts | 68 insts       | 35.8%               |
+| power     | 71 insts  | 47 insts       | 33.8%               |
+| fibonacci | 22 insts  | 13 insts       | 40.9%               |
+| bitcount  | 33 insts  | 19 insts       | 42.4%               |
+| collatz   | 42 insts  | 26 insts       | 38.1%               |
+| gcd       | 21 insts  | 14 insts       | 33.3%               |
 
 **Geometric mean across all programs:** 0.7624 code size ratio (23.8% average reduction).
 
