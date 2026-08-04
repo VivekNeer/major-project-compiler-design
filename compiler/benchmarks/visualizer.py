@@ -334,8 +334,14 @@ def plot_box_distributions(
         reduction_data.append(reductions)
 
     fig, ax = plt.subplots(figsize=(max(8, len(program_names) * 1.5), 6))
-    bp = ax.boxplot(reduction_data, labels=program_names, patch_artist=True,
-                    widths=0.6, showmeans=True, meanprops={"marker": "D", "markerfacecolor": "red"})
+    try:
+        # matplotlib >= 3.9 renamed `labels` to `tick_labels`, removing
+        # the old kwarg entirely in 3.11.
+        bp = ax.boxplot(reduction_data, tick_labels=program_names, patch_artist=True,
+                        widths=0.6, showmeans=True, meanprops={"marker": "D", "markerfacecolor": "red"})
+    except TypeError:
+        bp = ax.boxplot(reduction_data, labels=program_names, patch_artist=True,
+                        widths=0.6, showmeans=True, meanprops={"marker": "D", "markerfacecolor": "red"})
 
     colors = plt.cm.Set3(np.linspace(0, 1, len(program_names)))
     for patch, color in zip(bp["boxes"], colors):
