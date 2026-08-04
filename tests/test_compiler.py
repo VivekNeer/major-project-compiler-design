@@ -14,7 +14,7 @@ from compiler.parser import Parser, ParseError, parse_source
 from compiler.ast_nodes import (
     Program, FunctionDecl, Block, VarDecl, IfStatement, WhileStatement,
     ReturnStatement, PrintStatement, BinaryOp, NumberLiteral, Identifier,
-    Assignment,
+    Assignment, ArrayDecl, ArrayAccess, ArrayAssignment,
 )
 from compiler.symbol_table import SymbolTable, SymbolTableError
 from compiler.ir_generator import IRGenerator, generate_ir
@@ -955,6 +955,130 @@ class TestCrossPassIntegration:
                 name = os.path.basename(filepath)
                 assert base_result.output == opt_result.output, \
                     f"{name} with {ordering}: output mismatch"
+
+
+# ======================================================================
+# Array Support Tests
+# ======================================================================
+
+class TestArrays:
+    def test_lexer_brackets(self):
+        tokens = Lexer("a[0]").tokenize()
+        types = [t.type for t in tokens]
+        assert types == [
+            TokenType.IDENTIFIER, TokenType.LBRACKET,
+            TokenType.NUMBER, TokenType.RBRACKET, TokenType.EOF,
+        ]
+
+    def test_parse_array_decl(self):
+        ast = parse_source("int main() { int a[10]; return 0; }")
+        decl = ast.functions[0].body.statements[0]
+        assert isinstance(decl, ArrayDecl)
+        assert decl.name == "a"
+        assert decl.size == 10
+
+    def test_parse_array_access(self):
+        ast = parse_source("int main() { int a[5]; int x = a[2]; return 0; }")
+        var_decl = ast.functions[0].body.statements[1]
+        assert isinstance(var_decl, VarDecl)
+        assert isinstance(var_decl.init, ArrayAccess)
+        assert var_decl.init.name == "a"
+        assert isinstance(var_decl.init.index, NumberLiteral)
+
+    def test_parse_array_assignment(self):
+        ast = parse_source("int main() { int a[5]; a[1] = 9; return 0; }")
+        stmt = ast.functions[0].body.statements[1]
+        assert isinstance(stmt, ArrayAssignment)
+        assert stmt.name == "a"
+
+    def test_invalid_assignment_target_raises(self):
+        with pytest.raises(ParseError):
+            parse_source("int main() { 1 + 2 = 3; return 0; }")
+
+    def test_ir_generation_emits_array_opcodes(self):
+        ast = parse_source(
+            "int main() { int a[3]; a[0] = 7; int x = a[0]; return x; }"
+        )
+        ir = generate_ir(ast)
+        opcodes = [i.opcode for i in ir]
+        assert IROpcode.ARR_DECL in opcodes
+        assert IROpcode.ARR_STORE in opcodes
+        assert IROpcode.ARR_LOAD in opcodes
+
+    def test_interpreter_executes_arrays(self):
+        source = """
+        int main() {
+            int a[5];
+            int i = 0;
+            while (i < 5) {
+                a[i] = i * 2;
+                i = i + 1;
+            }
+            print(a[3]);
+            return a[4];
+        }
+        """
+        ir = generate_ir(parse_source(source))
+        result = execute_ir(ir)
+        assert result.output == [6]
+        assert result.return_value == 8
+
+    def test_out_of_bounds_access_is_safe(self):
+        source = """
+        int main() {
+            int a[3];
+            print(a[10]);
+            a[10] = 5;
+            return 0;
+        }
+        """
+        ir = generate_ir(parse_source(source))
+        result = execute_ir(ir)
+        assert result.output == [0]
+
+    def test_dce_never_removes_array_store(self):
+        ir = [
+            IRInstruction(IROpcode.FUNC_BEGIN, "main"),
+            IRInstruction(IROpcode.ARR_DECL, "a", "3"),
+            IRInstruction(IROpcode.LOAD_CONST, "t0", "0"),
+            IRInstruction(IROpcode.LOAD_CONST, "t1", "9"),
+            IRInstruction(IROpcode.ARR_STORE, "a", "t0", "t1"),
+            IRInstruction(IROpcode.RETURN, src1="0"),
+            IRInstruction(IROpcode.FUNC_END, "main"),
+        ]
+        result = dead_code_elimination(ir)
+        assert any(i.opcode == IROpcode.ARR_STORE for i in result)
+
+    def test_all_pass_orderings_preserve_array_output(self):
+        source = """
+        int main() {
+            int a[6];
+            int i = 0;
+            while (i < 6) {
+                a[i] = i * 2 + 1;
+                i = i + 1;
+            }
+            int sum = 0;
+            i = 0;
+            while (i < 6) {
+                sum = sum + a[i];
+                i = i + 1;
+            }
+            print(sum);
+            print(a[5]);
+            return sum;
+        }
+        """
+        ir = generate_ir(parse_source(source))
+        baseline = execute_ir(ir)
+
+        for ordering in PassManager.all_full_orderings():
+            opt_ir = PassManager(ordering).run(ir)
+            result = execute_ir(opt_ir)
+            assert result.output == baseline.output, \
+                f"Ordering {ordering} changed output"
+            assert result.return_value == baseline.return_value, \
+                f"Ordering {ordering} changed return value"
 
 
 if __name__ == "__main__":
