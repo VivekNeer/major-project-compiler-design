@@ -62,6 +62,14 @@ INSTRUCTION_COST: dict[IROpcode, float] = {
     # I/O
     IROpcode.PRINT:      10.0,  # I/O is slow
 
+    # Arrays — memory access, costed like a branch (2 cycles) rather
+    # than a single-cycle register op, matching LDR/STR on Cortex-M0-
+    # class cores. ARR_DECL is static allocation bookkeeping, not a
+    # runtime memory access, so it is free like FUNC_BEGIN/FUNC_END.
+    IROpcode.ARR_DECL:   0.0,
+    IROpcode.ARR_LOAD:   2.0,
+    IROpcode.ARR_STORE:  2.0,
+
     # Structure
     IROpcode.FUNC_BEGIN: 0.0,
     IROpcode.FUNC_END:   0.0,
@@ -111,6 +119,7 @@ def instruction_breakdown(instructions: list[IRInstruction]) -> dict[str, int]:
         "control_flow": 0,
         "function": 0,
         "io": 0,
+        "array": 0,
     }
 
     arith = {IROpcode.ADD, IROpcode.SUB, IROpcode.MUL, IROpcode.DIV, IROpcode.MOD, IROpcode.NEG}
@@ -120,6 +129,7 @@ def instruction_breakdown(instructions: list[IRInstruction]) -> dict[str, int]:
     ctrl = {IROpcode.JUMP, IROpcode.JUMP_IF_TRUE, IROpcode.JUMP_IF_FALSE, IROpcode.LABEL}
     func = {IROpcode.PARAM, IROpcode.CALL, IROpcode.RETURN, IROpcode.FUNC_BEGIN, IROpcode.FUNC_END, IROpcode.FUNC_PARAM}
     io = {IROpcode.PRINT}
+    array = {IROpcode.ARR_DECL, IROpcode.ARR_LOAD, IROpcode.ARR_STORE}
 
     for inst in instructions:
         if inst.opcode in arith:
@@ -136,6 +146,8 @@ def instruction_breakdown(instructions: list[IRInstruction]) -> dict[str, int]:
             categories["function"] += 1
         elif inst.opcode in io:
             categories["io"] += 1
+        elif inst.opcode in array:
+            categories["array"] += 1
 
     return categories
 

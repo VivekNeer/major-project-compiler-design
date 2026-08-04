@@ -225,9 +225,9 @@ def plot_category_breakdown(
 
     labels = [r.pass_order_label for r in results]
     categories = ["arithmetic", "comparison", "logical", "data_movement",
-                  "control_flow", "function", "io"]
+                  "control_flow", "function", "io", "array"]
     colors = ["#E53935", "#1E88E5", "#43A047", "#FDD835",
-              "#8E24AA", "#FB8C00", "#00ACC1"]
+              "#8E24AA", "#FB8C00", "#00ACC1", "#6D4C41"]
 
     data = {cat: [r.instruction_breakdown.get(cat, 0) for r in results]
             for cat in categories}
