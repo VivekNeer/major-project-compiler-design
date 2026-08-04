@@ -26,7 +26,7 @@ A complete compiler infrastructure for a C subset language with 6 reorderable op
 
 The **Pass Manager** generates all 721 full permutations for exhaustive phase-ordering analysis.
 
-### 8 MiBench-Adapted Benchmarks
+### 9 MiBench- and PolyBench-Adapted Benchmarks
 
 | Program   | Source                       | Characteristic                                    |
 | --------- | ---------------------------- | ------------------------------------------------- |
@@ -38,6 +38,7 @@ The **Pass Manager** generates all 721 full permutations for exhaustive phase-or
 | isqrt     | MiBench automotive/basicmath | Newton's method convergence                       |
 | power     | MiBench security/blowfish    | Square-and-multiply modular exponentiation        |
 | sha_mix   | MiBench security/sha         | Iterative integer mixing with nested conditionals |
+| jacobi1d  | PolyBench/C stencils/jacobi-1d | Array load/store, index arithmetic, nested loops |
 
 ### Benchmarking & Visualization
 
@@ -50,7 +51,7 @@ The **Pass Manager** generates all 721 full permutations for exhaustive phase-or
 
 - **Learn Mode** -- step-through visualization of every compiler phase (Tokens, AST, Symbol Table, IR, Optimization Diff, Execution)
 - **Explore Mode** -- drag-and-drop pass reordering with instant IR updates and metrics
-- 8 preloaded benchmark programs
+- 9 preloaded benchmark programs
 - Dark-themed, zero-dependency frontend served by FastAPI
 
 ## Project Structure
@@ -76,7 +77,7 @@ compiler/
   benchmarks/
     metric_collector.py       # Static + dynamic metrics
     visualizer.py             # Publication-quality plots (matplotlib)
-    programs/                 # 8 MiBench-adapted benchmark programs
+    programs/                 # 9 MiBench- and PolyBench-adapted benchmark programs
   web/
     app.py                    # FastAPI server
     templates.py              # Single-file HTML/CSS/JS frontend
@@ -126,7 +127,7 @@ python -m compiler.main compiler/benchmarks/programs/factorial.c --show-tokens -
 python -m compiler.main compiler/benchmarks/programs/factorial.c --benchmark
 ```
 
-### Benchmark all 8 programs with full analysis
+### Benchmark all 9 programs with full analysis
 
 ```bash
 python -m compiler.main --benchmark-all --output-dir benchmark_results
@@ -180,6 +181,7 @@ int main() {
 **Supported constructs:**
 
 - `int` type, integer literals, arithmetic (`+`, `-`, `*`, `/`, `%`)
+- Fixed-size 1D arrays (`int a[10];`), zero-initialised, with indexed load/store (`a[i]`, `a[i] = expr;`)
 - Comparison (`==`, `!=`, `<`, `>`, `<=`, `>=`), logical (`&&`, `||`, `!`)
 - `if`/`else`, `while` loops, block scoping `{ }`
 - Functions with parameters, `return`, `print()`
