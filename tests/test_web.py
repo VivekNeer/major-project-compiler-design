@@ -92,6 +92,28 @@ class TestExamplesEndpoint:
         assert "source" in data
         assert "int main()" in data["source"]
 
+    def test_examples_classified_by_suite(self):
+        resp = client.get("/api/examples")
+        data = {e["name"]: e["suite"] for e in resp.json()}
+        assert data["fibonacci"] == "MiBench"
+        assert data["gemm"] == "PolyBench"
+        assert data["jacobi1d"] == "PolyBench"
+
+    def test_get_example_strips_leading_doc_comment(self):
+        resp = client.get("/api/examples/isqrt")
+        data = resp.json()
+        assert data["source"].startswith("int isqrt(int n)")
+        assert data["doc"]["title"] == "Integer Square Root via Newton's Method"
+        assert len(data["doc"]["points"]) > 0
+
+    def test_get_example_doc_points_cover_mibench_and_polybench(self):
+        for name in ("gcd", "gemm"):
+            resp = client.get("/api/examples/" + name)
+            data = resp.json()
+            assert data["doc"] is not None
+            assert data["doc"]["title"]
+            assert all(p.endswith((".", ":")) for p in data["doc"]["points"])
+
     def test_get_nonexistent_example(self):
         resp = client.get("/api/examples/nonexistent")
         assert resp.status_code == 404
