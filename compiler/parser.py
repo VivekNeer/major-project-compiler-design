@@ -9,17 +9,20 @@ Grammar (informal EBNF):
     param_list      = "int" IDENT { "," "int" IDENT }
     block           = "{" { statement } "}"
     statement       = var_decl
+                    | array_decl
                     | if_stmt
                     | while_stmt
                     | return_stmt
                     | print_stmt
                     | assignment_or_expr_stmt
     var_decl        = "int" IDENT [ "=" expr ] ";"
+    array_decl      = "int" IDENT "[" NUMBER "]" ";"
     if_stmt         = "if" "(" expr ")" block [ "else" block ]
     while_stmt      = "while" "(" expr ")" block
     return_stmt     = "return" [ expr ] ";"
     print_stmt      = "print" "(" expr ")" ";"
-    assignment_or_expr_stmt = IDENT "=" expr ";" | expr ";"
+    assignment_or_expr_stmt = expr "=" expr ";" | expr ";"
+                    (assignment target must resolve to IDENT or IDENT "[" expr "]")
 
 Expression precedence (lowest to highest):
     or_expr         = and_expr { "||" and_expr }
@@ -29,7 +32,7 @@ Expression precedence (lowest to highest):
     addition        = multiplication { ("+" | "-") multiplication }
     multiplication  = unary { ("*" | "/" | "%") unary }
     unary           = ("-" | "!") unary | primary
-    primary         = NUMBER | IDENT [ "(" [arg_list] ")" ] | "(" expr ")"
+    primary         = NUMBER | IDENT [ "(" [arg_list] ")" | "[" expr "]" ] | "(" expr ")"
 """
 
 from __future__ import annotations
@@ -37,9 +40,9 @@ from __future__ import annotations
 from compiler.lexer import Token, TokenType, Lexer
 from compiler.ast_nodes import (
     Program, FunctionDecl, Parameter, Block,
-    VarDecl, IfStatement, WhileStatement, ReturnStatement,
-    PrintStatement, ExpressionStatement, Assignment,
-    BinaryOp, UnaryOp, NumberLiteral, Identifier, FunctionCall,
+    VarDecl, ArrayDecl, IfStatement, WhileStatement, ReturnStatement,
+    PrintStatement, ExpressionStatement, Assignment, ArrayAssignment,
+    BinaryOp, UnaryOp, NumberLiteral, Identifier, FunctionCall, ArrayAccess,
     ASTNode,
 )
 
@@ -165,9 +168,19 @@ class Parser:
         # Assignment or expression statement
         return self._parse_assignment_or_expr_stmt()
 
-    def _parse_var_decl(self) -> VarDecl:
+    def _parse_var_decl(self) -> ASTNode:
         tok = self._consume(TokenType.INT)
         name = self._consume(TokenType.IDENTIFIER, "for variable name")
+
+        if self._match(TokenType.LBRACKET):
+            size_tok = self._consume(TokenType.NUMBER, "for array size")
+            self._consume(TokenType.RBRACKET, "after array size")
+            self._consume(TokenType.SEMICOLON, "after array declaration")
+            return ArrayDecl(
+                name=name.value, size=int(size_tok.value),
+                line=tok.line, col=tok.col,
+            )
+
         init = None
         if self._match(TokenType.ASSIGN):
             init = self._parse_expr()
@@ -217,18 +230,23 @@ class Parser:
 
     def _parse_assignment_or_expr_stmt(self) -> ASTNode:
         cur = self._current()
-        # Look ahead: IDENT "=" -> assignment
-        if cur.type == TokenType.IDENTIFIER and self._peek().type == TokenType.ASSIGN:
-            name_tok = self._consume(TokenType.IDENTIFIER)
-            self._consume(TokenType.ASSIGN)
+        expr = self._parse_expr()
+
+        if self._match(TokenType.ASSIGN):
             value = self._parse_expr()
             self._consume(TokenType.SEMICOLON, "after assignment")
-            return Assignment(
-                name=name_tok.value, value=value,
-                line=name_tok.line, col=name_tok.col,
-            )
+            if isinstance(expr, Identifier):
+                return Assignment(
+                    name=expr.name, value=value,
+                    line=expr.line, col=expr.col,
+                )
+            if isinstance(expr, ArrayAccess):
+                return ArrayAssignment(
+                    name=expr.name, index=expr.index, value=value,
+                    line=expr.line, col=expr.col,
+                )
+            raise ParseError("Invalid assignment target", cur)
 
-        expr = self._parse_expr()
         self._consume(TokenType.SEMICOLON, "after expression statement")
         return ExpressionStatement(expr=expr, line=cur.line, col=cur.col)
 
@@ -320,6 +338,12 @@ class Parser:
                         args.append(self._parse_expr())
                 self._consume(TokenType.RPAREN, "after function arguments")
                 return FunctionCall(name=tok.value, args=args, line=tok.line, col=tok.col)
+            # Array indexing?
+            if self._at(TokenType.LBRACKET):
+                self._consume(TokenType.LBRACKET)
+                index = self._parse_expr()
+                self._consume(TokenType.RBRACKET, "after array index")
+                return ArrayAccess(name=tok.value, index=index, line=tok.line, col=tok.col)
             return Identifier(name=tok.value, line=tok.line, col=tok.col)
 
         # Parenthesized expression
