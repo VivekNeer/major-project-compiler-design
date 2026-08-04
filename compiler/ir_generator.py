@@ -10,9 +10,9 @@ from __future__ import annotations
 
 from compiler.ast_nodes import (
     Program, FunctionDecl, Block,
-    VarDecl, IfStatement, WhileStatement, ReturnStatement,
-    PrintStatement, ExpressionStatement, Assignment,
-    BinaryOp, UnaryOp, NumberLiteral, Identifier, FunctionCall,
+    VarDecl, ArrayDecl, IfStatement, WhileStatement, ReturnStatement,
+    PrintStatement, ExpressionStatement, Assignment, ArrayAssignment,
+    BinaryOp, UnaryOp, NumberLiteral, Identifier, FunctionCall, ArrayAccess,
     ASTNode,
 )
 from compiler.ir import IRInstruction, IROpcode, OP_TO_OPCODE
@@ -102,8 +102,12 @@ class IRGenerator:
     def _gen_statement(self, node: ASTNode) -> None:
         if isinstance(node, VarDecl):
             self._gen_var_decl(node)
+        elif isinstance(node, ArrayDecl):
+            self._gen_array_decl(node)
         elif isinstance(node, Assignment):
             self._gen_assignment(node)
+        elif isinstance(node, ArrayAssignment):
+            self._gen_array_assignment(node)
         elif isinstance(node, IfStatement):
             self._gen_if(node)
         elif isinstance(node, WhileStatement):
@@ -132,10 +136,25 @@ class IRGenerator:
             # Default-initialise to 0
             self._emit(IROpcode.LOAD_CONST, dest=sym.ir_name, src1="0")
 
+    def _gen_array_decl(self, node: ArrayDecl) -> None:
+        sym = self._symtab.declare(node.name, var_type="array", array_size=node.size)
+        self._all_symbols.append({
+            "name": sym.name, "type": sym.var_type,
+            "scope": sym.scope_depth, "ir_name": sym.ir_name,
+            "array_size": sym.array_size,
+        })
+        self._emit(IROpcode.ARR_DECL, dest=sym.ir_name, src1=str(node.size))
+
     def _gen_assignment(self, node: Assignment) -> None:
         sym = self._symtab.lookup(node.name)
         val = self._gen_expr(node.value)
         self._emit(IROpcode.COPY, dest=sym.ir_name, src1=val)
+
+    def _gen_array_assignment(self, node: ArrayAssignment) -> None:
+        sym = self._symtab.lookup(node.name)
+        index = self._gen_expr(node.index)
+        val = self._gen_expr(node.value)
+        self._emit(IROpcode.ARR_STORE, dest=sym.ir_name, src1=index, src2=val)
 
     def _gen_if(self, node: IfStatement) -> None:
         cond = self._gen_expr(node.condition)
@@ -189,6 +208,13 @@ class IRGenerator:
         if isinstance(node, Identifier):
             sym = self._symtab.lookup(node.name)
             return sym.ir_name
+
+        if isinstance(node, ArrayAccess):
+            sym = self._symtab.lookup(node.name)
+            index = self._gen_expr(node.index)
+            tmp = self._new_temp()
+            self._emit(IROpcode.ARR_LOAD, dest=tmp, src1=sym.ir_name, src2=index)
+            return tmp
 
         if isinstance(node, BinaryOp):
             left = self._gen_expr(node.left)
