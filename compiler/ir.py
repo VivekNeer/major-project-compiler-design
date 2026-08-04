@@ -54,6 +54,11 @@ class IROpcode(Enum):
     # I/O
     PRINT = auto()      # print src1
 
+    # Arrays (fixed-size, zero-initialised)
+    ARR_DECL = auto()   # dest = array name, src1 = element count
+    ARR_LOAD = auto()   # dest = src1[src2]  (src1 = array name, src2 = index)
+    ARR_STORE = auto()  # dest[src1] = src2  (dest = array name, src1 = index, src2 = value)
+
     # No-op (placeholder for eliminated instructions)
     NOP = auto()
 
@@ -102,6 +107,7 @@ class IRInstruction:
             IROpcode.LTE, IROpcode.GTE,
             IROpcode.AND, IROpcode.OR, IROpcode.NOT,
             IROpcode.COPY, IROpcode.LOAD_CONST, IROpcode.CALL,
+            IROpcode.ARR_LOAD,
         ):
             return self.dest
         return None
@@ -138,6 +144,14 @@ class IRInstruction:
         elif self.opcode == IROpcode.PRINT:
             if self.src1 and not _is_constant(self.src1):
                 used.add(self.src1)
+        elif self.opcode == IROpcode.ARR_LOAD:
+            if self.src2 and not _is_constant(self.src2):
+                used.add(self.src2)
+        elif self.opcode == IROpcode.ARR_STORE:
+            if self.src1 and not _is_constant(self.src1):
+                used.add(self.src1)
+            if self.src2 and not _is_constant(self.src2):
+                used.add(self.src2)
         return used
 
 
@@ -188,6 +202,12 @@ def format_instruction(inst: IRInstruction) -> str:
         return "  return"
     if op == IROpcode.PRINT:
         return f"  print {inst.src1}"
+    if op == IROpcode.ARR_DECL:
+        return f"  arr {inst.dest}[{inst.src1}]"
+    if op == IROpcode.ARR_LOAD:
+        return f"  {inst.dest} = {inst.src1}[{inst.src2}]"
+    if op == IROpcode.ARR_STORE:
+        return f"  {inst.dest}[{inst.src1}] = {inst.src2}"
     if op == IROpcode.FUNC_BEGIN:
         return f"func {inst.dest}:"
     if op == IROpcode.FUNC_END:
