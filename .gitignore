@@ -51,3 +51,4 @@ todo.md
 Thumbs.db
 .vscode/
 .idea/
+.venv_test/
