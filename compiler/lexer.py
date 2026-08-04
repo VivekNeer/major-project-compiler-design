@@ -5,7 +5,7 @@ Converts raw source text into a stream of tokens. Handles:
   - Keywords: int, if, else, while, return, print
   - Identifiers and integer literals
   - Operators: arithmetic, comparison, logical, assignment
-  - Delimiters: parentheses, braces, semicolons, commas
+  - Delimiters: parentheses, braces, brackets, semicolons, commas
   - Single-line (//) and multi-line (/* */) comments
   - Whitespace skipping with line/column tracking
 """
@@ -57,6 +57,8 @@ class TokenType(Enum):
     RPAREN = auto()     # )
     LBRACE = auto()     # {
     RBRACE = auto()     # }
+    LBRACKET = auto()   # [
+    RBRACKET = auto()   # ]
     SEMICOLON = auto()  # ;
     COMMA = auto()      # ,
 
@@ -249,6 +251,8 @@ class Lexer:
                 ")": TokenType.RPAREN,
                 "{": TokenType.LBRACE,
                 "}": TokenType.RBRACE,
+                "[": TokenType.LBRACKET,
+                "]": TokenType.RBRACKET,
                 ";": TokenType.SEMICOLON,
                 ",": TokenType.COMMA,
             }
