@@ -26,19 +26,25 @@ A complete compiler infrastructure for a C subset language with 6 reorderable op
 
 The **Pass Manager** generates all 721 full permutations for exhaustive phase-ordering analysis.
 
-### 9 MiBench- and PolyBench-Adapted Benchmarks
+### 15 MiBench- and PolyBench-Adapted Benchmarks
 
-| Program   | Source                       | Characteristic                                    |
-| --------- | ---------------------------- | ------------------------------------------------- |
-| bitcount  | MiBench automotive/bitcnts   | Loop + conditional + modular arithmetic           |
-| collatz   | MiBench automotive patterns  | Unpredictable branching                           |
-| factorial | MiBench basicmath            | Multiplication loops + dead code opportunities    |
-| fibonacci | MiBench basicmath            | Iterative loop + variable updates                 |
-| gcd       | MiBench basicmath            | Euclidean algorithm with modulo                   |
-| isqrt     | MiBench automotive/basicmath | Newton's method convergence                       |
-| power     | MiBench security/blowfish    | Square-and-multiply modular exponentiation        |
-| sha_mix   | MiBench security/sha         | Iterative integer mixing with nested conditionals |
-| jacobi1d  | PolyBench/C stencils/jacobi-1d | Array load/store, index arithmetic, nested loops |
+| Program   | Source                              | Characteristic                                       |
+| --------- | ------------------------------------ | ----------------------------------------------------- |
+| bitcount  | MiBench automotive/bitcnts           | Loop + conditional + modular arithmetic                |
+| collatz   | MiBench automotive patterns          | Unpredictable branching                                |
+| factorial | MiBench basicmath                    | Multiplication loops + dead code opportunities         |
+| fibonacci | MiBench basicmath                    | Iterative loop + variable updates                      |
+| gcd       | MiBench basicmath                    | Euclidean algorithm with modulo                        |
+| isqrt     | MiBench automotive/basicmath         | Newton's method convergence                            |
+| power     | MiBench security/blowfish            | Square-and-multiply modular exponentiation              |
+| sha_mix   | MiBench security/sha                 | Iterative integer mixing with nested conditionals       |
+| jacobi1d  | PolyBench/C stencils/jacobi-1d       | Array load/store, index arithmetic, nested loops        |
+| jacobi2d  | PolyBench/C stencils/jacobi-2d       | Flattened 2D stencil, five-point read pattern           |
+| gemm      | PolyBench/C linear-algebra/blas/gemm | Triple-nested loop, flattened matrix multiply-accumulate |
+| 2mm       | PolyBench/C linear-algebra/kernels/2mm | Two chained matrix multiplications, five live arrays   |
+| atax      | PolyBench/C linear-algebra/kernels/atax | Two sequential reduction loops sharing an intermediate array |
+| bicg      | PolyBench/C linear-algebra/kernels/bicg | Two accumulators updated from one shared matrix load  |
+| gesummv   | PolyBench/C linear-algebra/blas/gesummv | Two matrix-vector products combined by a scalar step |
 
 ### Benchmarking & Visualization
 
@@ -51,7 +57,7 @@ The **Pass Manager** generates all 721 full permutations for exhaustive phase-or
 
 - **Learn Mode** -- step-through visualization of every compiler phase (Tokens, AST, Symbol Table, IR, Optimization Diff, Execution)
 - **Explore Mode** -- drag-and-drop pass reordering with instant IR updates and metrics
-- 9 preloaded benchmark programs
+- 15 preloaded benchmark programs
 - Dark-themed, zero-dependency frontend served by FastAPI
 
 ## Project Structure
@@ -77,7 +83,7 @@ compiler/
   benchmarks/
     metric_collector.py       # Static + dynamic metrics
     visualizer.py             # Publication-quality plots (matplotlib)
-    programs/                 # 9 MiBench- and PolyBench-adapted benchmark programs
+    programs/                 # 15 MiBench- and PolyBench-adapted benchmark programs
   web/
     app.py                    # FastAPI server
     templates.py              # Single-file HTML/CSS/JS frontend
@@ -127,7 +133,7 @@ python -m compiler.main compiler/benchmarks/programs/factorial.c --show-tokens -
 python -m compiler.main compiler/benchmarks/programs/factorial.c --benchmark
 ```
 
-### Benchmark all 9 programs with full analysis
+### Benchmark all 15 programs with full analysis
 
 ```bash
 python -m compiler.main --benchmark-all --output-dir benchmark_results
