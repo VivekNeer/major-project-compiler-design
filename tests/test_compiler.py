@@ -570,6 +570,28 @@ class TestMetrics:
         assert not is_constant("x")
         assert not is_constant("t0")
 
+    def test_array_ops_cost_more_than_register_ops(self):
+        ir = [
+            IRInstruction(IROpcode.ARR_DECL, "a", "4"),
+            IRInstruction(IROpcode.ARR_STORE, "a", "0", "t0"),
+            IRInstruction(IROpcode.ARR_LOAD, "t1", "a", "0"),
+        ]
+        # ARR_DECL is free (static allocation); load/store cost more
+        # than a single-cycle register op, matching Cortex-M LDR/STR.
+        assert estimate_cycles(ir) == 4.0
+        assert estimate_cycles(ir) > count_code_size(ir)
+
+    def test_array_ops_counted_in_breakdown(self):
+        from compiler.benchmarks.metric_collector import instruction_breakdown
+        ir = [
+            IRInstruction(IROpcode.ARR_DECL, "a", "4"),
+            IRInstruction(IROpcode.ARR_STORE, "a", "0", "t0"),
+            IRInstruction(IROpcode.ARR_LOAD, "t1", "a", "0"),
+        ]
+        breakdown = instruction_breakdown(ir)
+        assert breakdown["array"] == 3
+        assert sum(breakdown.values()) == 3
+
 
 # ======================================================================
 # End-to-End Integration Tests
