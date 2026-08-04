@@ -151,6 +151,22 @@ def _fold_instruction(inst: IRInstruction, const_map: dict[str, str]) -> IRInstr
             return IRInstruction(IROpcode.LOAD_CONST, inst.dest, s1)
         return inst
 
+    # --- Array load/store: substitute known-constant index/value operands.
+    #     Never folded away entirely — the loaded/stored value depends on
+    #     runtime array contents, which this pass does not model. ---
+    if opcode == IROpcode.ARR_LOAD:
+        s2 = _resolve(inst.src2, const_map)
+        if s2 != inst.src2:
+            return IRInstruction(opcode, inst.dest, inst.src1, s2)
+        return inst
+
+    if opcode == IROpcode.ARR_STORE:
+        s1 = _resolve(inst.src1, const_map)
+        s2 = _resolve(inst.src2, const_map)
+        if s1 != inst.src1 or s2 != inst.src2:
+            return IRInstruction(opcode, inst.dest, s1, s2)
+        return inst
+
     # --- Conditional jumps: if constant, convert to unconditional/remove ---
     if opcode == IROpcode.JUMP_IF_TRUE and inst.src1:
         s1 = _resolve(inst.src1, const_map)

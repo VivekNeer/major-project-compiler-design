@@ -85,12 +85,18 @@ def _remove_dead_assignments(instructions: list[IRInstruction]) -> list[IRInstru
 def _is_dead(inst: IRInstruction, used: set[str]) -> bool:
     """Determine if an instruction is dead (defines an unused variable
     and has no side effects)."""
-    # Never remove these — they have side effects or structural meaning
+    # Never remove these — they have side effects or structural meaning.
+    # ARR_STORE is included because it writes through a name (the array)
+    # that a later ARR_LOAD may alias with an index we cannot prove
+    # distinct at compile time — defined_var() already returns None for
+    # it, but the entry is kept here for the same explicitness as the
+    # other side-effecting opcodes.
     if inst.opcode in (
         IROpcode.PRINT, IROpcode.RETURN, IROpcode.PARAM,
         IROpcode.JUMP, IROpcode.JUMP_IF_TRUE, IROpcode.JUMP_IF_FALSE,
         IROpcode.LABEL, IROpcode.FUNC_BEGIN, IROpcode.FUNC_END,
         IROpcode.CALL,  # calls may have side effects
+        IROpcode.ARR_DECL, IROpcode.ARR_STORE,
         IROpcode.NOP,
     ):
         return False

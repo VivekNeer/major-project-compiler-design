@@ -24,7 +24,10 @@ from __future__ import annotations
 from compiler.ir import IRInstruction, IROpcode, is_constant
 
 
-# Opcodes eligible for CSE — pure computations
+# Opcodes eligible for CSE — pure computations. ARR_LOAD is deliberately
+# excluded: without alias analysis we cannot prove an intervening
+# ARR_STORE to the same array didn't change the loaded value, so array
+# reads are never cached across instructions.
 _CSE_OPCODES = {
     IROpcode.ADD, IROpcode.SUB, IROpcode.MUL, IROpcode.DIV, IROpcode.MOD,
     IROpcode.EQ, IROpcode.NEQ, IROpcode.LT, IROpcode.GT,
