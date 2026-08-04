@@ -67,6 +67,21 @@ class Assignment(ASTNode):
     value: ASTNode = field(default_factory=ASTNode)
 
 
+@dataclass
+class ArrayAccess(ASTNode):
+    """Array indexing expression, e.g. a[i]"""
+    name: str = ""
+    index: ASTNode = field(default_factory=ASTNode)
+
+
+@dataclass
+class ArrayAssignment(ASTNode):
+    """Array element assignment, e.g. a[i] = expr"""
+    name: str = ""
+    index: ASTNode = field(default_factory=ASTNode)
+    value: ASTNode = field(default_factory=ASTNode)
+
+
 # ---------------------------------------------------------------------------
 # Statements
 # ---------------------------------------------------------------------------
@@ -76,6 +91,13 @@ class VarDecl(ASTNode):
     """Variable declaration: int x; or int x = expr;"""
     name: str = ""
     init: Optional[ASTNode] = None
+
+
+@dataclass
+class ArrayDecl(ASTNode):
+    """Fixed-size array declaration: int a[10]; (always zero-initialised)"""
+    name: str = ""
+    size: int = 0
 
 
 @dataclass
