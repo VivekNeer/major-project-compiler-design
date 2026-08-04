@@ -116,13 +116,61 @@ def _error_phase(e: Exception) -> str:
 
 def get_example_description(source: str) -> str:
     """Extract first comment line as description."""
+    doc, _ = extract_doc_comment(source)
+    if doc:
+        return doc["title"]
     for line in source.splitlines():
         stripped = line.strip()
-        if stripped.startswith("/*"):
-            return stripped.lstrip("/* ").rstrip(" */").rstrip(".")
         if stripped.startswith("//"):
             return stripped.lstrip("/ ").rstrip(".")
     return ""
+
+
+def get_example_suite(source: str) -> str:
+    """Classify an example by which benchmark suite its doc comment cites."""
+    if "PolyBench" in source:
+        return "PolyBench"
+    if "MiBench" in source:
+        return "MiBench"
+    return "Other"
+
+
+def extract_doc_comment(source: str) -> tuple[dict | None, str]:
+    """Split a leading /* ... */ doc comment into a structured heading
+    ("title" + bullet "points") and return it alongside the source with
+    that comment (and the blank line after it) removed.
+    """
+    stripped = source.lstrip("\n")
+    if not stripped.startswith("/*"):
+        return None, source
+    end = stripped.find("*/")
+    if end == -1:
+        return None, source
+
+    lines = []
+    for raw_line in stripped[2:end].splitlines():
+        line = raw_line.strip()
+        if line.startswith("*"):
+            line = line[1:].strip()
+        if line:
+            lines.append(line)
+
+    remaining_source = stripped[end + 2:].lstrip("\n")
+    if not lines:
+        return None, remaining_source
+
+    title = lines[0].rstrip(".")
+    body = " ".join(lines[1:])
+    points = []
+    for sentence in body.split(". "):
+        sentence = sentence.strip()
+        if not sentence:
+            continue
+        if not sentence.endswith((".", ":")):
+            sentence += "."
+        points.append(sentence)
+
+    return {"title": title, "points": points}, remaining_source
 
 
 # ---------------------------------------------------------------------------
@@ -263,7 +311,11 @@ def list_examples():
         name = os.path.splitext(os.path.basename(filepath))[0]
         with open(filepath, "r") as f:
             source = f.read()
-        examples.append({"name": name, "description": get_example_description(source)})
+        examples.append({
+            "name": name,
+            "description": get_example_description(source),
+            "suite": get_example_suite(source),
+        })
     return examples
 
 
@@ -280,7 +332,8 @@ def get_example(name: str):
         raise HTTPException(status_code=404, detail=f"Example '{name}' not found")
     with open(filepath, "r") as f:
         source = f.read()
-    return {"name": name, "source": source}
+    doc, code = extract_doc_comment(source)
+    return {"name": name, "source": code, "doc": doc}
 
 
 if __name__ == "__main__":
