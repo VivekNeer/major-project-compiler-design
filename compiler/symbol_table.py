@@ -14,9 +14,10 @@ from dataclasses import dataclass, field
 class Symbol:
     """A single symbol entry."""
     name: str
-    var_type: str = "int"       # Our language only has int for now
+    var_type: str = "int"       # "int" or "array"
     scope_depth: int = 0
     ir_name: str = ""           # The name used in IR (may differ for shadowed vars)
+    array_size: int | None = None  # Element count, set when var_type == "array"
 
 
 class SymbolTableError(Exception):
@@ -47,7 +48,7 @@ class SymbolTable:
         self._scopes.pop()
         self._depth -= 1
 
-    def declare(self, name: str, var_type: str = "int") -> Symbol:
+    def declare(self, name: str, var_type: str = "int", array_size: int | None = None) -> Symbol:
         """Declare a new variable in the current scope.
 
         If the name already exists in the *current* scope, raise an error.
@@ -75,6 +76,7 @@ class SymbolTable:
             var_type=var_type,
             scope_depth=self._depth,
             ir_name=ir_name,
+            array_size=array_size,
         )
         current[name] = sym
         return sym
