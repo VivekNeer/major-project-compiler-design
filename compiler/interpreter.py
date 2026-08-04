@@ -39,6 +39,7 @@ class IRInterpreter:
     def __init__(self, instructions: list[IRInstruction]):
         self._instructions = instructions
         self._vars: dict[str, int] = {}
+        self._arrays: dict[str, list[int]] = {}
         self._output: list[int] = []
         self._step_count = 0
         self._opcode_freq: dict[str, int] = {}
@@ -76,6 +77,7 @@ class IRInterpreter:
         # Save caller state and create new frame
         frame = _CallFrame(
             saved_vars=dict(self._vars),
+            saved_arrays=dict(self._arrays),
             return_addr=0,
         )
         self._call_stack.append(frame)
@@ -85,8 +87,9 @@ class IRInterpreter:
         func_inst = self._instructions[func_start]
         assert func_inst.opcode == IROpcode.FUNC_BEGIN
 
-        # Start fresh variable scope for this function
+        # Start fresh variable/array scope for this function
         self._vars = {}
+        self._arrays = {}
 
         # Bind parameters using FUNC_PARAM instructions that follow FUNC_BEGIN
         pc = func_start + 1
@@ -198,6 +201,27 @@ class IRInterpreter:
                 pc += 1
                 continue
 
+            if inst.opcode == IROpcode.ARR_DECL:
+                self._arrays[inst.dest] = [0] * const_value(inst.src1)
+                pc += 1
+                continue
+
+            if inst.opcode == IROpcode.ARR_LOAD:
+                arr = self._arrays.get(inst.src1, [])
+                idx = self._get_value(inst.src2)
+                self._vars[inst.dest] = arr[idx] if 0 <= idx < len(arr) else 0
+                pc += 1
+                continue
+
+            if inst.opcode == IROpcode.ARR_STORE:
+                arr = self._arrays.setdefault(inst.dest, [])
+                idx = self._get_value(inst.src1)
+                val = self._get_value(inst.src2)
+                if 0 <= idx < len(arr):
+                    arr[idx] = val
+                pc += 1
+                continue
+
             if inst.opcode == IROpcode.FUNC_BEGIN:
                 # Skip nested function declarations
                 depth = 1
@@ -216,6 +240,7 @@ class IRInterpreter:
         if self._call_stack:
             frame = self._call_stack.pop()
             self._vars = frame.saved_vars
+            self._arrays = frame.saved_arrays
 
         return return_value
 
@@ -234,6 +259,7 @@ class IRInterpreter:
 @dataclass
 class _CallFrame:
     saved_vars: dict[str, int]
+    saved_arrays: dict[str, list[int]]
     return_addr: int
 
 
