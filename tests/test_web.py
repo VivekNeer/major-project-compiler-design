@@ -80,7 +80,7 @@ class TestExamplesEndpoint:
         resp = client.get("/api/examples")
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data) == 9
+        assert len(data) == 15
         names = [e["name"] for e in data]
         assert "fibonacci" in names
         assert "factorial" in names
