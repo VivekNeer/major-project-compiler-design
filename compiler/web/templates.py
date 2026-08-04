@@ -93,6 +93,12 @@ select { background:var(--surface2); color:var(--text); border:1px solid var(--o
 .explanation h4 { color:var(--blue); margin-bottom:6px; font-size:13px; }
 .explanation p { color:var(--subtext); }
 
+/* Source doc box (example program heading + sub-points) */
+.doc-box { background:var(--bg); border:1px solid var(--overlay); border-radius:var(--radius); padding:12px; margin-top:10px; font-size:13px; line-height:1.6; }
+.doc-box h4 { color:var(--blue); margin-bottom:6px; font-size:13px; }
+.doc-box ul { margin:0; padding-left:18px; color:var(--subtext); }
+.doc-box li { margin-bottom:4px; }
+
 /* Output */
 .output-box { background:var(--bg); border:1px solid var(--overlay); border-radius:var(--radius); padding:12px; font-family:var(--font-mono); font-size:13px; }
 .output-value { color:var(--green); }
@@ -160,6 +166,7 @@ select { background:var(--surface2); color:var(--text); border:1px solid var(--o
     print(b);
     return 0;
 }</textarea>
+        <div id="source-doc"></div>
       </div>
     </div>
     <div class="panel">
@@ -189,6 +196,7 @@ select { background:var(--surface2); color:var(--text); border:1px solid var(--o
     <div class="panel-header">Source Code</div>
     <div class="panel-body editor">
       <textarea id="explore-editor" spellcheck="false" placeholder="Enter your C code here..."></textarea>
+      <div id="explore-source-doc"></div>
     </div>
   </div>
   <div class="panel">
@@ -286,13 +294,32 @@ async function loadExampleList() {
     const resp = await fetch('/api/examples');
     const examples = await resp.json();
     const sel = document.getElementById('example-select');
+    const groups = {};
     examples.forEach(e => {
+      const suite = e.suite || 'Other';
+      if (!groups[suite]) {
+        const g = document.createElement('optgroup');
+        g.label = suite;
+        groups[suite] = g;
+      }
       const opt = document.createElement('option');
       opt.value = e.name;
       opt.textContent = e.name;
-      sel.appendChild(opt);
+      groups[suite].appendChild(opt);
     });
+    const order = ['MiBench', 'PolyBench'].concat(
+      Object.keys(groups).filter(s => s !== 'MiBench' && s !== 'PolyBench')
+    );
+    order.forEach(suite => { if (groups[suite]) sel.appendChild(groups[suite]); });
   } catch(e) { console.error(e); }
+}
+
+function renderSourceDoc(doc) {
+  const html = doc ? `<div class="doc-box"><h4>${escapeHtml(doc.title)}</h4><ul>${
+    doc.points.map(p => `<li>${escapeHtml(p)}</li>`).join('')
+  }</ul></div>` : '';
+  document.getElementById('source-doc').innerHTML = html;
+  document.getElementById('explore-source-doc').innerHTML = html;
 }
 
 async function loadExample(name) {
@@ -302,6 +329,7 @@ async function loadExample(name) {
     const data = await resp.json();
     document.getElementById('source-editor').value = data.source;
     document.getElementById('explore-editor').value = data.source;
+    renderSourceDoc(data.doc);
     baselineSource = '';
     exploreBaseIR = '';
     baselineMetrics = null;
