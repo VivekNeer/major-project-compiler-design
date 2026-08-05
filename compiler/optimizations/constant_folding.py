@@ -167,6 +167,14 @@ def _fold_instruction(inst: IRInstruction, const_map: dict[str, str]) -> IRInstr
             return IRInstruction(opcode, inst.dest, s1, s2)
         return inst
 
+    # --- Global store: substitute a known-constant value operand. The
+    #     store itself is never removed — other functions may read it. ---
+    if opcode == IROpcode.GLOBAL_STORE:
+        s1 = _resolve(inst.src1, const_map)
+        if s1 != inst.src1:
+            return IRInstruction(opcode, inst.dest, s1)
+        return inst
+
     # --- Conditional jumps: if constant, convert to unconditional/remove ---
     if opcode == IROpcode.JUMP_IF_TRUE and inst.src1:
         s1 = _resolve(inst.src1, const_map)

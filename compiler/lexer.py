@@ -14,6 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Iterator
+from compiler.errors import CompilerError
 
 
 class TokenType(Enum):
@@ -26,6 +27,7 @@ class TokenType(Enum):
     IF = auto()
     ELSE = auto()
     WHILE = auto()
+    FOR = auto()
     RETURN = auto()
     PRINT = auto()
 
@@ -71,6 +73,7 @@ KEYWORDS = {
     "if": TokenType.IF,
     "else": TokenType.ELSE,
     "while": TokenType.WHILE,
+    "for": TokenType.FOR,
     "return": TokenType.RETURN,
     "print": TokenType.PRINT,
 }
@@ -87,7 +90,7 @@ class Token:
         return f"Token({self.type.name}, {self.value!r}, L{self.line}:{self.col})"
 
 
-class LexerError(Exception):
+class LexerError(CompilerError):
     def __init__(self, message: str, line: int, col: int):
         self.line = line
         self.col = col

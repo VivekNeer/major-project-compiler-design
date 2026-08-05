@@ -128,6 +128,15 @@ class WhileStatement(ASTNode):
 
 
 @dataclass
+class ForStatement(ASTNode):
+    """for (init; cond; update) body — any of the three headers may be empty."""
+    init: Optional[ASTNode] = None
+    condition: Optional[ASTNode] = None
+    update: Optional[ASTNode] = None
+    body: Block = field(default_factory=Block)
+
+
+@dataclass
 class ReturnStatement(ASTNode):
     """return expr;"""
     value: Optional[ASTNode] = None
@@ -159,5 +168,6 @@ class FunctionDecl(ASTNode):
 
 @dataclass
 class Program(ASTNode):
-    """Root node — a program is a list of function declarations."""
+    """Root node — global variable declarations and function declarations."""
     functions: list[FunctionDecl] = field(default_factory=list)
+    globals: list[VarDecl] = field(default_factory=list)

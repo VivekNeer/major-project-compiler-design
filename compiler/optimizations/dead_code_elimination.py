@@ -97,6 +97,9 @@ def _is_dead(inst: IRInstruction, used: set[str]) -> bool:
         IROpcode.LABEL, IROpcode.FUNC_BEGIN, IROpcode.FUNC_END,
         IROpcode.CALL,  # calls may have side effects
         IROpcode.ARR_DECL, IROpcode.ARR_STORE,
+        # Global state writes are observable across functions, which
+        # block-local liveness cannot see — never remove them.
+        IROpcode.GLOBAL_DECL, IROpcode.GLOBAL_STORE,
         IROpcode.NOP,
     ):
         return False

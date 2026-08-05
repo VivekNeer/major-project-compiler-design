@@ -10,16 +10,18 @@ from __future__ import annotations
 
 from compiler.ast_nodes import (
     Program, FunctionDecl, Block,
-    VarDecl, ArrayDecl, IfStatement, WhileStatement, ReturnStatement,
+    VarDecl, ArrayDecl, IfStatement, WhileStatement, ForStatement,
+    ReturnStatement,
     PrintStatement, ExpressionStatement, Assignment, ArrayAssignment,
     BinaryOp, UnaryOp, NumberLiteral, Identifier, FunctionCall, ArrayAccess,
     ASTNode,
 )
 from compiler.ir import IRInstruction, IROpcode, OP_TO_OPCODE
 from compiler.symbol_table import SymbolTable
+from compiler.errors import CompilerError
 
 
-class IRGeneratorError(Exception):
+class IRGeneratorError(CompilerError):
     pass
 
 
@@ -57,9 +59,34 @@ class IRGenerator:
 
     def generate(self, program: Program) -> list[IRInstruction]:
         """Generate IR for an entire program."""
+        for glob in program.globals:
+            self._gen_global_decl(glob)
         for func in program.functions:
             self._gen_function(func)
         return self._instructions
+
+    def _gen_global_decl(self, node: VarDecl) -> None:
+        """Emit a GLOBAL_DECL. Initialiser must be a compile-time constant."""
+        value = 0
+        if node.init is not None:
+            value = self._const_eval(node.init)
+        sym = self._symtab.declare(node.name, var_type="global")
+        self._all_symbols.append({
+            "name": sym.name, "type": "global",
+            "scope": sym.scope_depth, "ir_name": sym.ir_name,
+        })
+        self._emit(IROpcode.GLOBAL_DECL, dest=sym.ir_name, src1=str(value))
+
+    def _const_eval(self, node: ASTNode) -> int:
+        """Evaluate a constant initialiser expression (C-style global rule)."""
+        if isinstance(node, NumberLiteral):
+            return node.value
+        if isinstance(node, UnaryOp) and node.op == "-":
+            return -self._const_eval(node.operand)
+        raise IRGeneratorError(
+            f"Global initializer must be a constant expression "
+            f"(at L{node.line}:{node.col})"
+        )
 
     def generate_with_symbols(self, program: Program) -> tuple[list[IRInstruction], list[dict]]:
         """Generate IR and return accumulated symbol information."""
@@ -112,6 +139,8 @@ class IRGenerator:
             self._gen_if(node)
         elif isinstance(node, WhileStatement):
             self._gen_while(node)
+        elif isinstance(node, ForStatement):
+            self._gen_for(node)
         elif isinstance(node, ReturnStatement):
             self._gen_return(node)
         elif isinstance(node, PrintStatement):
@@ -148,7 +177,10 @@ class IRGenerator:
     def _gen_assignment(self, node: Assignment) -> None:
         sym = self._symtab.lookup(node.name)
         val = self._gen_expr(node.value)
-        self._emit(IROpcode.COPY, dest=sym.ir_name, src1=val)
+        if sym.var_type == "global":
+            self._emit(IROpcode.GLOBAL_STORE, dest=sym.ir_name, src1=val)
+        else:
+            self._emit(IROpcode.COPY, dest=sym.ir_name, src1=val)
 
     def _gen_array_assignment(self, node: ArrayAssignment) -> None:
         sym = self._symtab.lookup(node.name)
@@ -184,6 +216,29 @@ class IRGenerator:
         self._emit(IROpcode.JUMP, dest=loop_label)
         self._emit(IROpcode.LABEL, dest=end_label)
 
+    def _gen_for(self, node: ForStatement) -> None:
+        """Lower `for (init; cond; update) body` to labels and jumps.
+
+        The init clause runs once inside its own scope; an empty
+        condition means the loop only exits via the body's control flow.
+        """
+        self._symtab.enter_scope()
+        if node.init is not None:
+            self._gen_statement(node.init)
+
+        loop_label = self._new_label()
+        end_label = self._new_label()
+        self._emit(IROpcode.LABEL, dest=loop_label)
+        if node.condition is not None:
+            cond = self._gen_expr(node.condition)
+            self._emit(IROpcode.JUMP_IF_FALSE, dest=end_label, src1=cond)
+        self._gen_block(node.body)
+        if node.update is not None:
+            self._gen_statement(node.update)
+        self._emit(IROpcode.JUMP, dest=loop_label)
+        self._emit(IROpcode.LABEL, dest=end_label)
+        self._symtab.exit_scope()
+
     def _gen_return(self, node: ReturnStatement) -> None:
         if node.value:
             val = self._gen_expr(node.value)
@@ -207,6 +262,10 @@ class IRGenerator:
 
         if isinstance(node, Identifier):
             sym = self._symtab.lookup(node.name)
+            if sym.var_type == "global":
+                tmp = self._new_temp()
+                self._emit(IROpcode.GLOBAL_LOAD, dest=tmp, src1=sym.ir_name)
+                return tmp
             return sym.ir_name
 
         if isinstance(node, ArrayAccess):
@@ -217,6 +276,8 @@ class IRGenerator:
             return tmp
 
         if isinstance(node, BinaryOp):
+            if node.op in ("&&", "||"):
+                return self._gen_short_circuit(node)
             left = self._gen_expr(node.left)
             right = self._gen_expr(node.right)
             tmp = self._new_temp()
@@ -250,10 +311,40 @@ class IRGenerator:
             # Assignment used as expression
             sym = self._symtab.lookup(node.name)
             val = self._gen_expr(node.value)
+            if sym.var_type == "global":
+                self._emit(IROpcode.GLOBAL_STORE, dest=sym.ir_name, src1=val)
+                return val
             self._emit(IROpcode.COPY, dest=sym.ir_name, src1=val)
             return sym.ir_name
 
         raise IRGeneratorError(f"Unknown expression type: {type(node).__name__}")
+
+    def _gen_short_circuit(self, node: BinaryOp) -> str:
+        """Lower && and || with C short-circuit semantics.
+
+        The right operand is only evaluated when the left operand does
+        not already determine the result. The result is normalised to
+        0/1 via a `!= 0` comparison, matching the eager AND/OR opcodes.
+        """
+        tmp = self._new_temp()
+        skip_label = self._new_label()
+        end_label = self._new_label()
+
+        left = self._gen_expr(node.left)
+        if node.op == "&&":
+            self._emit(IROpcode.JUMP_IF_FALSE, dest=skip_label, src1=left)
+        else:  # ||
+            self._emit(IROpcode.JUMP_IF_TRUE, dest=skip_label, src1=left)
+
+        right = self._gen_expr(node.right)
+        self._emit(IROpcode.NEQ, dest=tmp, src1=right, src2="0")
+        self._emit(IROpcode.JUMP, dest=end_label)
+
+        self._emit(IROpcode.LABEL, dest=skip_label)
+        short_value = "0" if node.op == "&&" else "1"
+        self._emit(IROpcode.LOAD_CONST, dest=tmp, src1=short_value)
+        self._emit(IROpcode.LABEL, dest=end_label)
+        return tmp
 
 
 def generate_ir(program: Program) -> list[IRInstruction]:

@@ -4,7 +4,8 @@ Recursive Descent Parser.
 Converts a token stream into an Abstract Syntax Tree (AST).
 
 Grammar (informal EBNF):
-    program         = { function_decl }
+    program         = { global_decl | function_decl }
+    global_decl     = "int" IDENT [ "=" [ "-" ] NUMBER ] ";"
     function_decl   = "int" IDENT "(" [param_list] ")" block
     param_list      = "int" IDENT { "," "int" IDENT }
     block           = "{" { statement } "}"
@@ -12,13 +13,15 @@ Grammar (informal EBNF):
                     | array_decl
                     | if_stmt
                     | while_stmt
+                    | for_stmt
                     | return_stmt
                     | print_stmt
                     | assignment_or_expr_stmt
     var_decl        = "int" IDENT [ "=" expr ] ";"
     array_decl      = "int" IDENT "[" NUMBER "]" ";"
-    if_stmt         = "if" "(" expr ")" block [ "else" block ]
+    if_stmt         = "if" "(" expr ")" block [ "else" (block | if_stmt) ]
     while_stmt      = "while" "(" expr ")" block
+    for_stmt        = "for" "(" [var_decl | assignment] ";" [expr] ";" [assignment | expr] ")" block
     return_stmt     = "return" [ expr ] ";"
     print_stmt      = "print" "(" expr ")" ";"
     assignment_or_expr_stmt = expr "=" expr ";" | expr ";"
@@ -38,16 +41,18 @@ Expression precedence (lowest to highest):
 from __future__ import annotations
 
 from compiler.lexer import Token, TokenType, Lexer
+from compiler.errors import CompilerError
 from compiler.ast_nodes import (
     Program, FunctionDecl, Parameter, Block,
-    VarDecl, ArrayDecl, IfStatement, WhileStatement, ReturnStatement,
+    VarDecl, ArrayDecl, IfStatement, WhileStatement, ForStatement,
+    ReturnStatement,
     PrintStatement, ExpressionStatement, Assignment, ArrayAssignment,
     BinaryOp, UnaryOp, NumberLiteral, Identifier, FunctionCall, ArrayAccess,
     ASTNode,
 )
 
 
-class ParseError(Exception):
+class ParseError(CompilerError):
     def __init__(self, message: str, token: Token):
         self.token = token
         super().__init__(
@@ -101,11 +106,27 @@ class Parser:
     # ------------------------------------------------------------------
 
     def parse(self) -> Program:
-        """Parse the full program."""
+        """Parse the full program: globals and functions in any order."""
         functions: list[FunctionDecl] = []
+        globals_: list[VarDecl] = []
         while not self._at(TokenType.EOF):
-            functions.append(self._parse_function_decl())
-        return Program(functions=functions, line=1, col=1)
+            # Both start with "int IDENT"; a "(" after the name means function.
+            if self._peek(2).type == TokenType.LPAREN:
+                functions.append(self._parse_function_decl())
+            else:
+                globals_.append(self._parse_global_decl())
+        return Program(functions=functions, globals=globals_, line=1, col=1)
+
+    def _parse_global_decl(self) -> VarDecl:
+        tok = self._consume(TokenType.INT, "at start of global declaration")
+        name = self._consume(TokenType.IDENTIFIER, "for global variable name")
+        if self._at(TokenType.LBRACKET):
+            raise ParseError("Global arrays are not supported", self._current())
+        init = None
+        if self._match(TokenType.ASSIGN):
+            init = self._parse_expr()
+        self._consume(TokenType.SEMICOLON, "after global declaration")
+        return VarDecl(name=name.value, init=init, line=tok.line, col=tok.col)
 
     def _parse_function_decl(self) -> FunctionDecl:
         tok_int = self._consume(TokenType.INT, "at start of function declaration")
@@ -158,6 +179,8 @@ class Parser:
             return self._parse_if()
         if cur.type == TokenType.WHILE:
             return self._parse_while()
+        if cur.type == TokenType.FOR:
+            return self._parse_for()
         if cur.type == TokenType.RETURN:
             return self._parse_return()
         if cur.type == TokenType.PRINT:
@@ -195,7 +218,12 @@ class Parser:
         then_block = self._parse_block()
         else_block = None
         if self._match(TokenType.ELSE):
-            else_block = self._parse_block()
+            if self._at(TokenType.IF):
+                # else-if chain: wrap the nested if in an implicit block
+                nested = self._parse_if()
+                else_block = Block(statements=[nested], line=nested.line, col=nested.col)
+            else:
+                else_block = self._parse_block()
         return IfStatement(
             condition=cond, then_block=then_block, else_block=else_block,
             line=tok.line, col=tok.col,
@@ -211,6 +239,56 @@ class Parser:
             condition=cond, body=body,
             line=tok.line, col=tok.col,
         )
+
+    def _parse_for(self) -> ForStatement:
+        tok = self._consume(TokenType.FOR)
+        self._consume(TokenType.LPAREN, "after 'for'")
+
+        # Init clause: var decl, assignment/expression, or empty
+        init: ASTNode | None = None
+        if self._at(TokenType.INT):
+            init = self._parse_var_decl()          # consumes its ';'
+        elif self._match(TokenType.SEMICOLON):
+            init = None
+        else:
+            init = self._parse_simple_statement()
+            self._consume(TokenType.SEMICOLON, "after for-loop init")
+
+        # Condition clause: expression or empty (empty means always true)
+        condition: ASTNode | None = None
+        if not self._at(TokenType.SEMICOLON):
+            condition = self._parse_expr()
+        self._consume(TokenType.SEMICOLON, "after for-loop condition")
+
+        # Update clause: assignment/expression or empty
+        update: ASTNode | None = None
+        if not self._at(TokenType.RPAREN):
+            update = self._parse_simple_statement()
+        self._consume(TokenType.RPAREN, "after for-loop header")
+
+        body = self._parse_block()
+        return ForStatement(
+            init=init, condition=condition, update=update, body=body,
+            line=tok.line, col=tok.col,
+        )
+
+    def _parse_simple_statement(self) -> ASTNode:
+        """Parse an assignment or bare expression without a trailing ';'.
+
+        Used for for-loop init and update clauses.
+        """
+        cur = self._current()
+        expr = self._parse_expr()
+        if self._match(TokenType.ASSIGN):
+            value = self._parse_expr()
+            if isinstance(expr, Identifier):
+                return Assignment(name=expr.name, value=value,
+                                  line=expr.line, col=expr.col)
+            if isinstance(expr, ArrayAccess):
+                return ArrayAssignment(name=expr.name, index=expr.index,
+                                       value=value, line=expr.line, col=expr.col)
+            raise ParseError("Invalid assignment target", cur)
+        return ExpressionStatement(expr=expr, line=cur.line, col=cur.col)
 
     def _parse_return(self) -> ReturnStatement:
         tok = self._consume(TokenType.RETURN)

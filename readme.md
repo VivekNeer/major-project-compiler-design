@@ -1,6 +1,6 @@
 # Benchmarking Phase Ordering Trade-offs in a Custom Compiler Infrastructure using MiBench
 
-A complete compiler infrastructure for a C subset language with 6 reorderable optimization passes, an IR interpreter for dynamic metrics, publication-quality benchmarking with MiBench-adapted programs, and an interactive browser-based learning tool.
+A complete compiler infrastructure for a C subset language with 6 reorderable optimization passes, a semantic analyzer, an IR interpreter for dynamic metrics, a RISC-V RV32IM assembly backend, publication-quality benchmarking with MiBench-adapted programs, and an interactive browser-based learning tool.
 
 ## Features
 
@@ -8,10 +8,12 @@ A complete compiler infrastructure for a C subset language with 6 reorderable op
 
 - **Lexer** -- tokenizer with line/column tracking, single-line and block comments
 - **Recursive Descent Parser** -- 6-level operator precedence, full error reporting
-- **AST** -- 15 node types as Python dataclasses
-- **Three-Address Code IR** -- 27 opcodes with `defined_var()`/`used_vars()` analysis
+- **AST** -- 20 node types as Python dataclasses
+- **Semantic Analyzer** -- collects *all* violations in one pass: undeclared variables, undefined functions, wrong argument counts, duplicate declarations, array/scalar misuse, non-constant global initializers
+- **Three-Address Code IR** -- 35 opcodes with `defined_var()`/`used_vars()` analysis
 - **Symbol Table** -- nested scopes with variable shadowing
 - **IR Interpreter** -- executes 3AC directly for dynamic instruction counts and output validation
+- **RISC-V RV32IM Backend** -- lowers optimized IR to GNU-syntax assembly (Linux user mode), with a built-in `print_int` runtime and interpreter-faithful semantics (`x/0 == 0`); validated by an in-repo RV32IM simulator
 
 ### 6 Optimization Passes
 
@@ -67,10 +69,13 @@ compiler/
   lexer.py                    # Tokenizer
   parser.py                   # Recursive descent parser
   ast_nodes.py                # AST node definitions
+  errors.py                   # Shared CompilerError exception hierarchy
+  semantic_analyzer.py        # Semantic checks between parse and IR gen
   symbol_table.py             # Scope-aware variable tracking
   ir.py                       # Three-Address Code definitions
   ir_generator.py             # AST -> IR translation
   interpreter.py              # IR interpreter (dynamic execution)
+  codegen_riscv.py            # RISC-V RV32IM assembly backend
   main.py                     # CLI entry point
   optimizations/
     constant_folding.py       # CF pass
@@ -89,8 +94,10 @@ compiler/
     templates.py              # Single-file HTML/CSS/JS frontend
     api_models.py             # Pydantic request/response models
 tests/
-  test_compiler.py            # 83 compiler tests
-  test_web.py                 # 13 web API tests
+  test_compiler.py            # 101 compiler tests
+  test_web.py                 # 21 web API tests
+  test_new_features.py        # 58 semantic / language-feature / codegen tests
+  riscv_sim.py                # Minimal RV32IM simulator (test oracle for the backend)
 ```
 
 ## Setup
@@ -139,7 +146,27 @@ python -m compiler.main compiler/benchmarks/programs/factorial.c --benchmark
 python -m compiler.main --benchmark-all --output-dir benchmark_results
 ```
 
-This generates 54 publication-quality plots and a geometric mean summary table.
+This generates 91 publication-quality plots (6 per program plus one cross-program box plot) and a geometric mean summary table.
+
+### Emit RISC-V RV32IM assembly
+
+```bash
+# To stdout
+python -m compiler.main compiler/benchmarks/programs/factorial.c --optimize CF,CP,SR,AS,DCE,CSE --emit-asm
+
+# To a file
+python -m compiler.main compiler/benchmarks/programs/factorial.c -O CF,DCE -S factorial.s
+```
+
+The output is GNU-syntax RV32IM assembly for Linux user mode. To run it
+on real tooling (optional — the test suite validates it with a bundled
+simulator):
+
+```bash
+sudo apt install gcc-riscv64-linux-gnu qemu-user
+riscv64-linux-gnu-gcc -march=rv32im -mabi=ilp32 -static -nostdlib -o factorial factorial.s
+qemu-riscv32 ./factorial
+```
 
 ### Launch the interactive learning tool
 
@@ -152,7 +179,7 @@ Open `http://localhost:8080` in your browser.
 ## Running Tests
 
 ```bash
-# All tests (96 total)
+# All tests (180 total)
 python -m pytest -v
 
 # Compiler tests only
@@ -187,9 +214,10 @@ int main() {
 **Supported constructs:**
 
 - `int` type, integer literals, arithmetic (`+`, `-`, `*`, `/`, `%`)
+- Global variables (`int g = 5;` at file scope, constant initializers, stored in `.data` in the RISC-V backend)
 - Fixed-size 1D arrays (`int a[10];`), zero-initialised, with indexed load/store (`a[i]`, `a[i] = expr;`)
-- Comparison (`==`, `!=`, `<`, `>`, `<=`, `>=`), logical (`&&`, `||`, `!`)
-- `if`/`else`, `while` loops, block scoping `{ }`
+- Comparison (`==`, `!=`, `<`, `>`, `<=`, `>=`), logical (`&&`, `||`, `!`) with **C short-circuit evaluation**
+- `if`/`else`/`else if` chains, `while` and `for` loops, block scoping `{ }`
 - Functions with parameters, `return`, `print()`
 - Single-line (`//`) and block (`/* */`) comments
 

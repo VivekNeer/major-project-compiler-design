@@ -70,6 +70,12 @@ INSTRUCTION_COST: dict[IROpcode, float] = {
     IROpcode.ARR_LOAD:   2.0,
     IROpcode.ARR_STORE:  2.0,
 
+    # Globals — same LDR/STR memory-access cost as arrays. GLOBAL_DECL
+    # is static .data allocation, free like ARR_DECL.
+    IROpcode.GLOBAL_DECL:  0.0,
+    IROpcode.GLOBAL_LOAD:  2.0,
+    IROpcode.GLOBAL_STORE: 2.0,
+
     # Structure
     IROpcode.FUNC_BEGIN: 0.0,
     IROpcode.FUNC_END:   0.0,
@@ -100,7 +106,8 @@ class BenchmarkMetrics:
 
 def count_code_size(instructions: list[IRInstruction]) -> int:
     """Count meaningful instructions (exclude labels, NOPs, structural markers)."""
-    skip = {IROpcode.LABEL, IROpcode.NOP, IROpcode.FUNC_BEGIN, IROpcode.FUNC_END, IROpcode.FUNC_PARAM}
+    skip = {IROpcode.LABEL, IROpcode.NOP, IROpcode.FUNC_BEGIN, IROpcode.FUNC_END,
+            IROpcode.FUNC_PARAM, IROpcode.GLOBAL_DECL}
     return sum(1 for inst in instructions if inst.opcode not in skip)
 
 
@@ -129,7 +136,8 @@ def instruction_breakdown(instructions: list[IRInstruction]) -> dict[str, int]:
     ctrl = {IROpcode.JUMP, IROpcode.JUMP_IF_TRUE, IROpcode.JUMP_IF_FALSE, IROpcode.LABEL}
     func = {IROpcode.PARAM, IROpcode.CALL, IROpcode.RETURN, IROpcode.FUNC_BEGIN, IROpcode.FUNC_END, IROpcode.FUNC_PARAM}
     io = {IROpcode.PRINT}
-    array = {IROpcode.ARR_DECL, IROpcode.ARR_LOAD, IROpcode.ARR_STORE}
+    array = {IROpcode.ARR_DECL, IROpcode.ARR_LOAD, IROpcode.ARR_STORE,
+             IROpcode.GLOBAL_DECL, IROpcode.GLOBAL_LOAD, IROpcode.GLOBAL_STORE}
 
     for inst in instructions:
         if inst.opcode in arith:

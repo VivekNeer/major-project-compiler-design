@@ -59,6 +59,13 @@ class IROpcode(Enum):
     ARR_LOAD = auto()   # dest = src1[src2]  (src1 = array name, src2 = index)
     ARR_STORE = auto()  # dest[src1] = src2  (dest = array name, src1 = index, src2 = value)
 
+    # Global variables (module-level scalars, constant-initialised).
+    # Loads/stores go through dedicated opcodes — like ARR_LOAD/ARR_STORE —
+    # so block-local passes cannot miscompile cross-function state.
+    GLOBAL_DECL = auto()   # global dest = src1 (constant initialiser)
+    GLOBAL_LOAD = auto()   # dest = global src1
+    GLOBAL_STORE = auto()  # global dest = src1
+
     # No-op (placeholder for eliminated instructions)
     NOP = auto()
 
@@ -107,7 +114,7 @@ class IRInstruction:
             IROpcode.LTE, IROpcode.GTE,
             IROpcode.AND, IROpcode.OR, IROpcode.NOT,
             IROpcode.COPY, IROpcode.LOAD_CONST, IROpcode.CALL,
-            IROpcode.ARR_LOAD,
+            IROpcode.ARR_LOAD, IROpcode.GLOBAL_LOAD,
         ):
             return self.dest
         return None
@@ -152,6 +159,11 @@ class IRInstruction:
                 used.add(self.src1)
             if self.src2 and not _is_constant(self.src2):
                 used.add(self.src2)
+        elif self.opcode == IROpcode.GLOBAL_STORE:
+            # src1 is the value being stored; dest is the global's name,
+            # which lives in global storage, not the local variable space.
+            if self.src1 and not _is_constant(self.src1):
+                used.add(self.src1)
         return used
 
 
@@ -208,6 +220,12 @@ def format_instruction(inst: IRInstruction) -> str:
         return f"  {inst.dest} = {inst.src1}[{inst.src2}]"
     if op == IROpcode.ARR_STORE:
         return f"  {inst.dest}[{inst.src1}] = {inst.src2}"
+    if op == IROpcode.GLOBAL_DECL:
+        return f"global {inst.dest} = {inst.src1}"
+    if op == IROpcode.GLOBAL_LOAD:
+        return f"  {inst.dest} = @{inst.src1}"
+    if op == IROpcode.GLOBAL_STORE:
+        return f"  @{inst.dest} = {inst.src1}"
     if op == IROpcode.FUNC_BEGIN:
         return f"func {inst.dest}:"
     if op == IROpcode.FUNC_END:

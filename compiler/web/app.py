@@ -11,9 +11,12 @@ from fastapi.responses import HTMLResponse
 from compiler.lexer import Lexer, LexerError
 from compiler.parser import Parser, ParseError
 from compiler.ir_generator import IRGenerator, IRGeneratorError
+from compiler.symbol_table import SymbolTableError
+from compiler.semantic_analyzer import check_semantics, SemanticError
 from compiler.ir import format_ir
 from compiler.interpreter import execute_ir, InterpreterError
 from compiler.optimizations.pass_manager import PassManager
+from compiler.codegen_riscv import generate_riscv, CodegenError
 from compiler.benchmarks.metric_collector import count_code_size, estimate_cycles
 from compiler.web.api_models import CompileRequest, OptimizeRequest, BenchmarkRequest
 from compiler.web.templates import INDEX_HTML
@@ -107,7 +110,9 @@ def _error_phase(e: Exception) -> str:
         return "lexer"
     if isinstance(e, ParseError):
         return "parser"
-    if isinstance(e, IRGeneratorError):
+    if isinstance(e, SemanticError):
+        return "semantic"
+    if isinstance(e, (IRGeneratorError, SymbolTableError)):
         return "ir_generator"
     if isinstance(e, ValueError):
         return "optimization"
@@ -196,11 +201,17 @@ def compile_source(req: CompileRequest):
     except ParseError as e:
         return make_error("parser", e)
 
+    # Semantic analysis
+    try:
+        check_semantics(ast)
+    except SemanticError as e:
+        return make_error("semantic", e)
+
     # Generate IR + symbols
     try:
         gen = IRGenerator()
         ir, symbols = gen.generate_with_symbols(ast)
-    except IRGeneratorError as e:
+    except (IRGeneratorError, SymbolTableError) as e:
         return make_error("ir_generator", e)
 
     return {
@@ -220,10 +231,11 @@ def optimize(req: OptimizeRequest):
     try:
         tokens = Lexer(req.source).tokenize()
         ast = Parser(tokens).parse()
+        check_semantics(ast)
         base_ir = IRGenerator().generate(ast)
         pm = PassManager(req.pass_order)
         opt_ir = pm.run(base_ir)
-    except (LexerError, ParseError, IRGeneratorError, ValueError) as e:
+    except (LexerError, ParseError, IRGeneratorError, SymbolTableError, SemanticError, ValueError) as e:
         return make_error(_error_phase(e), e)
 
     base_text = format_ir(base_ir)
@@ -247,10 +259,16 @@ def optimize(req: OptimizeRequest):
         output = []
         correct = False
 
+    try:
+        assembly = generate_riscv(opt_ir)
+    except CodegenError as e:
+        assembly = f"# codegen error: {e}"
+
     return {
         "pass_order": req.pass_order,
         "optimized_ir": serialize_ir(opt_ir),
         "optimized_ir_text": opt_text,
+        "assembly": assembly,
         "diff": diff,
         "metrics": {
             "code_size": count_code_size(opt_ir),
@@ -268,8 +286,9 @@ def benchmark(req: BenchmarkRequest):
     try:
         tokens = Lexer(req.source).tokenize()
         ast = Parser(tokens).parse()
+        check_semantics(ast)
         base_ir = IRGenerator().generate(ast)
-    except (LexerError, ParseError, IRGeneratorError) as e:
+    except (LexerError, ParseError, IRGeneratorError, SymbolTableError, SemanticError) as e:
         return make_error(_error_phase(e), e)
 
     base_exec = execute_ir(base_ir)

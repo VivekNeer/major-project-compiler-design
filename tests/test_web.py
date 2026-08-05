@@ -147,3 +147,43 @@ class TestIndexPage:
         assert 'id="explore-mode"' in html
         assert "compile()" in html or "compile(" in html
         assert "Compiler Explorer" in html
+
+
+class TestSemanticPhase:
+    def test_compile_reports_semantic_error(self):
+        resp = client.post(
+            "/api/compile",
+            json={"source": "int main() { x = 1; return 0; }"},
+        )
+        data = resp.json()
+        assert data["error"] is True
+        assert data["phase"] == "semantic"
+        assert "Undeclared variable 'x'" in data["message"]
+
+    def test_optimize_reports_semantic_error(self):
+        resp = client.post(
+            "/api/optimize",
+            json={"source": "int main() { return foo(); }", "pass_order": ["CF"]},
+        )
+        data = resp.json()
+        assert data["error"] is True
+        assert data["phase"] == "semantic"
+
+
+class TestAssemblyField:
+    def test_optimize_returns_riscv_assembly(self):
+        resp = client.post(
+            "/api/optimize",
+            json={
+                "source": "int main() { print(2 + 3); return 0; }",
+                "pass_order": ["CF", "DCE"],
+            },
+        )
+        data = resp.json()
+        assert "assembly" in data
+        assert "_start:" in data["assembly"]
+        assert "print_int" in data["assembly"]
+
+    def test_frontend_has_asm_toggle(self):
+        html = client.get("/").text
+        assert 'btn-ir-asm' in html

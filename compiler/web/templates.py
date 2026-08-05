@@ -206,6 +206,7 @@ select { background:var(--surface2); color:var(--text); border:1px solid var(--o
         <button class="active" id="btn-ir-base" onclick="setIRView('base')" style="font-size:11px;padding:3px 10px;">Base</button>
         <button id="btn-ir-opt" onclick="setIRView('opt')" style="font-size:11px;padding:3px 10px;">Optimized</button>
         <button id="btn-ir-diff" onclick="setIRView('diff')" style="font-size:11px;padding:3px 10px;">Diff</button>
+        <button id="btn-ir-asm" onclick="setIRView('asm')" style="font-size:11px;padding:3px 10px;">RISC-V</button>
       </div>
     </div>
     <div class="panel-body ir-view" id="explore-ir">
@@ -633,7 +634,7 @@ function updateExploreView() {
 
 function setIRView(mode) {
   irViewMode = mode;
-  ['base','opt','diff'].forEach(m => {
+  ['base','opt','diff','asm'].forEach(m => {
     const btn = document.getElementById('btn-ir-'+m);
     if(btn) btn.classList.toggle('active', m===mode);
   });
@@ -645,6 +646,8 @@ function setIRView(mode) {
     el.innerHTML = renderIRLines(exploreOptData.optimized_ir_text, 'kept');
   } else if (mode === 'diff' && exploreOptData) {
     el.innerHTML = renderDiffLines(exploreOptData.diff);
+  } else if (mode === 'asm' && exploreOptData) {
+    el.innerHTML = renderIRLines(exploreOptData.assembly, 'kept');
   }
 }
 

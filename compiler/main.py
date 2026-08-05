@@ -14,6 +14,9 @@ import glob
 import os
 import sys
 
+from compiler.errors import CompilerError
+from compiler.semantic_analyzer import check_semantics
+from compiler.codegen_riscv import generate_riscv
 from compiler.lexer import Lexer, LexerError
 from compiler.parser import Parser, ParseError
 from compiler.ir_generator import IRGenerator, IRGeneratorError
@@ -32,6 +35,7 @@ def compile_source(source: str, pass_order: list[str] | None = None):
     """Full compilation pipeline. Returns (ast, base_ir, optimized_ir)."""
     tokens = Lexer(source).tokenize()
     ast = Parser(tokens).parse()
+    check_semantics(ast)
     ir = IRGenerator().generate(ast)
 
     if pass_order:
@@ -42,14 +46,11 @@ def compile_source(source: str, pass_order: list[str] | None = None):
     return ast, ir, optimized
 
 
-def run_benchmark(
-    source: str,
-    program_name: str = "",
-    output_dir: str = "benchmark_results",
-) -> list[BenchmarkMetrics]:
+def run_benchmark(source: str) -> list[BenchmarkMetrics]:
     """Run all full-length pass orderings, collect static + dynamic metrics."""
     tokens = Lexer(source).tokenize()
     ast = Parser(tokens).parse()
+    check_semantics(ast)
     base_ir = IRGenerator().generate(ast)
 
     # Execute baseline for output validation
@@ -148,6 +149,11 @@ Examples:
     )
     parser.add_argument("--show-tokens", action="store_true")
     parser.add_argument("--show-ast", action="store_true")
+    parser.add_argument(
+        "--emit-asm", "-S", nargs="?", const="-", metavar="FILE",
+        help="Emit RISC-V RV32IM assembly for the (optimized) IR to FILE "
+             "(default: stdout)",
+    )
 
     args = parser.parse_args()
 
@@ -170,21 +176,20 @@ Examples:
                 source = f.read()
 
             try:
-                results = run_benchmark(source, program_name=name,
-                                        output_dir=args.output_dir)
+                results = run_benchmark(source)
                 # Print only top-10 and bottom-5 by size for readability
                 sorted_results = sorted(results, key=lambda r: r.code_size)
                 print_metrics_table(sorted_results[:10])
                 all_results[name] = results
-            except (LexerError, ParseError, IRGeneratorError) as e:
+            except CompilerError as e:
                 print(f"  ERROR: {e}")
 
-        # Generate per-program and cross-program plots
+        # Generate per-program plots (cross-program box plot is emitted
+        # once below, not per program)
         for name, results in all_results.items():
             try:
-                paths = generate_all_plots(
-                    results, output_dir=args.output_dir,
-                    program_name=name, all_program_results=all_results,
+                generate_all_plots(
+                    results, output_dir=args.output_dir, program_name=name,
                 )
             except ImportError:
                 pass
@@ -258,12 +263,11 @@ Examples:
 
     if args.benchmark:
         name = os.path.splitext(os.path.basename(args.source))[0]
-        results = run_benchmark(source, program_name=name,
-                                output_dir=args.output_dir)
+        results = run_benchmark(source)
         print_metrics_table(results)
         try:
-            paths = generate_all_plots(results, output_dir=args.output_dir,
-                                       program_name=name)
+            generate_all_plots(results, output_dir=args.output_dir,
+                               program_name=name)
             print(f"\n  Plots saved to {args.output_dir}/")
         except ImportError:
             pass
@@ -273,9 +277,19 @@ Examples:
     pass_order = args.optimize.split(",") if args.optimize else None
     try:
         ast, base_ir, optimized_ir = compile_source(source, pass_order)
-    except (LexerError, ParseError, IRGeneratorError) as e:
+    except CompilerError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
+
+    if args.emit_asm:
+        asm = generate_riscv(optimized_ir)
+        if args.emit_asm == "-":
+            print(asm, end="")
+        else:
+            with open(args.emit_asm, "w") as f:
+                f.write(asm)
+            print(f"Assembly written to {args.emit_asm}")
+        return
 
     print("\n  === Unoptimized IR ===")
     print(format_ir(base_ir))

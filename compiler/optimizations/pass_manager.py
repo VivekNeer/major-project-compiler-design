@@ -80,8 +80,8 @@ class PassManager:
     def all_orderings(pass_names: list[str] | None = None) -> list[list[str]]:
         """Generate all permutations of the given passes.
 
-        Also includes the empty list (no optimization) as baseline,
-        plus single-pass and two-pass combinations.
+        Includes the empty list (no optimization) as baseline, plus
+        every subset permutation of lengths 1 through n.
         """
         if pass_names is None:
             pass_names = list(PASS_REGISTRY.keys())
