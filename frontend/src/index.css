@@ -113,12 +113,13 @@ body {
 .nav-item:hover { background: var(--surface); color: var(--text); }
 .nav-item.active {
   background: var(--surface-2);
+  border: 1px solid var(--border);
+  padding: 8px 10px;
   color: var(--text);
   font-weight: 600;
-  box-shadow: inset 2px 0 0 var(--accent);
 }
 .nav-item .icon { width: 18px; text-align: center; color: var(--text-3); }
-.nav-item.active .icon { color: var(--accent); }
+.nav-item.active .icon { color: var(--text-2); }
 
 .sidebar .foot {
   margin-top: auto;
