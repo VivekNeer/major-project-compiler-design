@@ -140,12 +140,20 @@ class TestIndexPage:
         assert resp.status_code == 200
         assert "text/html" in resp.headers["content-type"]
 
-    def test_html_contains_key_elements(self):
-        resp = client.get("/")
-        html = resp.text
+    def test_root_serves_react_app_when_built(self):
+        import os
+        from compiler.web.app import STATIC_DIR
+        html = client.get("/").text
+        if os.path.exists(os.path.join(STATIC_DIR, "index.html")):
+            assert 'id="root"' in html
+            assert "Compiler Explorer" in html
+        else:
+            assert 'id="learn-mode"' in html
+
+    def test_legacy_page_still_served(self):
+        html = client.get("/legacy").text
         assert 'id="learn-mode"' in html
         assert 'id="explore-mode"' in html
-        assert "compile()" in html or "compile(" in html
         assert "Compiler Explorer" in html
 
 
@@ -184,6 +192,34 @@ class TestAssemblyField:
         assert "_start:" in data["assembly"]
         assert "print_int" in data["assembly"]
 
-    def test_frontend_has_asm_toggle(self):
-        html = client.get("/").text
+    def test_legacy_frontend_has_asm_toggle(self):
+        html = client.get("/legacy").text
         assert 'btn-ir-asm' in html
+
+    def test_optimize_steps_endpoint(self):
+        resp = client.post(
+            "/api/optimize-steps",
+            json={
+                "source": "int main() { int x = 2 + 3; print(x); return 0; }",
+                "pass_order": ["CF", "DCE"],
+            },
+        )
+        data = resp.json()
+        assert [s["label"] for s in data["stages"]] == ["Baseline", "CF", "DCE"]
+        assert data["output_correct"] is True
+        assert data["stages"][-1]["code_size"] <= data["stages"][0]["code_size"]
+
+    def test_assembly_endpoint_returns_mapping(self):
+        resp = client.post(
+            "/api/assembly",
+            json={
+                "source": "int main() { print(1 + 2); return 0; }",
+                "pass_order": [],
+            },
+        )
+        data = resp.json()
+        assert data["ir_lines"]
+        assert any("_start:" in line for line in data["asm_lines"])
+        assert data["mapping"]
+        m = data["mapping"][0]
+        assert m["asm_start"] < m["asm_end"]

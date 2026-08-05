@@ -55,12 +55,14 @@ The **Pass Manager** generates all 721 full permutations for exhaustive phase-or
 - Geometric mean normalization per Fleming & Wallace (1986)
 - Correctness validation: every ordering verified against baseline output
 
-### Interactive Learning Tool (Web UI)
+### Interactive Web Application (React + FastAPI)
 
-- **Learn Mode** -- step-through visualization of every compiler phase (Tokens, AST, Symbol Table, IR, Optimization Diff, Execution)
-- **Explore Mode** -- drag-and-drop pass reordering with instant IR updates and metrics
-- 15 preloaded benchmark programs
-- Dark-themed, zero-dependency frontend served by FastAPI
+- **Playground** -- CodeMirror editor with semantic-error squiggles; inspect tokens, collapsible AST tree, symbol table, and IR
+- **Optimization Lab** -- drag-and-drop pass ordering with a per-pass stepping timeline: watch the IR shrink stage by stage with diffs and metric deltas
+- **Assembly** -- side-by-side IR and RISC-V output with hover-linked line mapping
+- **Phase-Ordering Explorer** -- runs all 721 orderings in the browser; interactive Pareto scatter (click a point for details) and top-orderings chart
+- **Reference** -- pass catalog, cost model, and language guide
+- 15 preloaded benchmark programs; legacy zero-dependency page still served at `/legacy`
 
 ## Project Structure
 
@@ -90,9 +92,11 @@ compiler/
     visualizer.py             # Publication-quality plots (matplotlib)
     programs/                 # 15 MiBench- and PolyBench-adapted benchmark programs
   web/
-    app.py                    # FastAPI server
-    templates.py              # Single-file HTML/CSS/JS frontend
+    app.py                    # FastAPI server (API + static frontend)
+    templates.py              # Legacy single-file frontend (/legacy)
     api_models.py             # Pydantic request/response models
+    static/                   # Built React app (from frontend/)
+frontend/                     # React + Vite + TypeScript source
 tests/
   test_compiler.py            # 101 compiler tests
   test_web.py                 # 21 web API tests
@@ -168,13 +172,24 @@ riscv64-linux-gnu-gcc -march=rv32im -mabi=ilp32 -static -nostdlib -o factorial f
 qemu-riscv32 ./factorial
 ```
 
-### Launch the interactive learning tool
+### Launch the interactive web application
 
 ```bash
 python -m compiler.web.app
 ```
 
-Open `http://localhost:8080` in your browser.
+Open `http://localhost:8080` in your browser. The prebuilt React app in
+`compiler/web/static/` is served automatically; the legacy single-file UI
+remains at `http://localhost:8080/legacy`.
+
+To develop the frontend (requires Node 20+):
+
+```bash
+cd frontend
+npm install
+npm run dev      # dev server on :5173, proxies /api to :8080
+npm run build    # rebuilds compiler/web/static/
+```
 
 ## Running Tests
 

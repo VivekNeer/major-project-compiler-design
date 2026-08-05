@@ -64,6 +64,8 @@ class RiscvCodeGenerator:
         self._func_name = ""
         self._unique = 0
         self._param_queue: list[str] = []
+        # ir instruction index -> (first asm line, one-past-last asm line)
+        self._inst_ranges: dict[int, tuple[int, int]] = {}
 
     # ------------------------------------------------------------------
     # Public interface
@@ -86,7 +88,7 @@ class RiscvCodeGenerator:
             inst = self._instructions[i]
             if inst.opcode == IROpcode.FUNC_BEGIN:
                 end = self._find_func_end(i)
-                self._gen_function(self._instructions[i:end + 1])
+                self._gen_function(self._instructions[i:end + 1], base_index=i)
                 i = end + 1
             else:
                 i += 1  # top-level GLOBAL_DECLs already collected
@@ -94,6 +96,15 @@ class RiscvCodeGenerator:
         self._emit_runtime()
         self._emit_data()
         return "\n".join(self._lines) + "\n"
+
+    def generate_with_mapping(self) -> tuple[str, dict[int, tuple[int, int]]]:
+        """Generate assembly plus an IR-index -> asm-line-range mapping.
+
+        Line numbers are 0-based indices into the returned text's lines.
+        Only instruction indices that produced assembly appear as keys.
+        """
+        asm = self.generate()
+        return asm, dict(self._inst_ranges)
 
     # ------------------------------------------------------------------
     # Module structure
@@ -240,13 +251,14 @@ class RiscvCodeGenerator:
     # Function code generation
     # ------------------------------------------------------------------
 
-    def _gen_function(self, body: list[IRInstruction]) -> None:
+    def _gen_function(self, body: list[IRInstruction], base_index: int = 0) -> None:
         func = body[0].dest or "anon"
         self._func_name = func
         self._param_queue = []
         self._assign_slots(body)
 
         frame = self._frame_size + 16  # room for saved ra/s0 + padding
+        prologue_start = len(self._lines)
         self._emit(f"{func}:")
         self._emit(f"    addi sp, sp, -{frame}")
         self._emit(f"    sw ra, {frame - 4}(sp)")
@@ -255,27 +267,39 @@ class RiscvCodeGenerator:
 
         # Bind incoming arguments (FUNC_PARAM instructions follow FUNC_BEGIN)
         param_idx = 0
-        for inst in body[1:]:
+        for offset, inst in enumerate(body[1:], start=1):
             if inst.opcode != IROpcode.FUNC_PARAM:
                 break
             if param_idx >= len(_ARG_REGS):
                 raise CodegenError(
                     f"Function '{func}' has more than {len(_ARG_REGS)} parameters"
                 )
+            start = len(self._lines)
             self._store(_ARG_REGS[param_idx], inst.dest)
+            self._inst_ranges[base_index + offset] = (start, len(self._lines))
             param_idx += 1
+        self._inst_ranges[base_index] = (prologue_start, prologue_start + 5)
 
         ret_label = f".Lret_{func}"
-        for inst in body[1:-1]:
+        for offset, inst in enumerate(body[1:-1], start=1):
+            if inst.opcode == IROpcode.FUNC_PARAM:
+                continue  # already emitted with the prologue
+            start = len(self._lines)
             self._gen_instruction(inst, ret_label)
+            if len(self._lines) > start:
+                self._inst_ranges[base_index + offset] = (start, len(self._lines))
 
         # Fall-through return value is 0, matching the interpreter
+        epilogue_start = len(self._lines)
         self._emit("    li a0, 0")
         self._emit(f"{ret_label}:")
         self._emit(f"    lw ra, {frame - 4}(sp)")
         self._emit(f"    lw s0, {frame - 8}(sp)")
         self._emit(f"    addi sp, sp, {frame}")
         self._emit("    ret")
+        self._inst_ranges[base_index + len(body) - 1] = (
+            epilogue_start, len(self._lines),
+        )
         self._emit("")
 
     def _gen_instruction(self, inst: IRInstruction, ret_label: str) -> None:
