@@ -6,6 +6,7 @@ import {
 import type { SharedProps } from '../App'
 import Editor from '../components/Editor'
 import ExamplePicker from '../components/ExamplePicker'
+import PipelineRail from '../components/PipelineRail'
 import DiffView from '../components/DiffView'
 
 export default function OptLab({ source, setSource, examples }: SharedProps) {
@@ -49,6 +50,7 @@ export default function OptLab({ source, setSource, examples }: SharedProps) {
         step through the pipeline stage by stage — this is the phase-ordering
         problem made visible.
       </p>
+      <PipelineRail active={['IR', 'passes']} />
 
       <div className="row" style={{ marginBottom: 12 }}>
         <div className="chips">

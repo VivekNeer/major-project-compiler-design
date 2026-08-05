@@ -6,6 +6,7 @@ import {
 import type { SharedProps } from '../App'
 import Editor from '../components/Editor'
 import ExamplePicker from '../components/ExamplePicker'
+import PipelineRail from '../components/PipelineRail'
 
 export default function AssemblyView({ source, setSource, examples }: SharedProps) {
   const [result, setResult] = useState<AssemblyResult | null>(null)
@@ -47,6 +48,7 @@ export default function AssemblyView({ source, setSource, examples }: SharedProp
         RISC-V RV32IM lowering of the IR. Hover either column to see which
         assembly a given IR instruction became — and vice versa.
       </p>
+      <PipelineRail active={['IR', 'passes', 'RV32IM']} />
 
       <div className="row" style={{ marginBottom: 12 }}>
         <button className="btn primary" onClick={run} disabled={busy}>

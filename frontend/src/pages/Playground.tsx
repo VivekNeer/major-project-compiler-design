@@ -3,6 +3,7 @@ import { api, isApiError, type ApiError, type CompileResult } from '../api'
 import type { SharedProps } from '../App'
 import Editor from '../components/Editor'
 import ExamplePicker from '../components/ExamplePicker'
+import PipelineRail from '../components/PipelineRail'
 import AstTree from '../components/AstTree'
 
 type Tab = 'tokens' | 'ast' | 'symbols' | 'ir'
@@ -40,6 +41,7 @@ export default function Playground({ source, setSource, examples }: SharedProps)
         symbol table, and three-address IR. Semantic errors are underlined in
         the editor.
       </p>
+      <PipelineRail active={['source', 'lexer', 'parser', 'semantic', 'IR']} />
 
       <div className="row" style={{ marginBottom: 12 }}>
         <button className="btn primary" onClick={compile} disabled={busy}>

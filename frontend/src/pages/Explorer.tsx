@@ -10,6 +10,7 @@ import {
 } from '../api'
 import type { SharedProps } from '../App'
 import ExamplePicker from '../components/ExamplePicker'
+import PipelineRail from '../components/PipelineRail'
 import Editor from '../components/Editor'
 
 ChartJS.register(LinearScale, CategoryScale, PointElement, BarElement, Tooltip, Legend)
@@ -126,6 +127,7 @@ export default function Explorer({ source, setSource, examples }: SharedProps) {
         Pareto frontier — orderings no other ordering beats on both size and
         cycles. Click a point for details.
       </p>
+      <PipelineRail active={['IR', 'passes']} />
 
       <div className="row" style={{ marginBottom: 12 }}>
         <button className="btn primary" onClick={run} disabled={busy}>

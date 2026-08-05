@@ -41,6 +41,9 @@ export default function App() {
     <div className="app">
       <nav className="sidebar">
         <div className="brand">
+          <span className="brand-chain" aria-hidden="true">
+            <i /><i /><i />
+          </span>
           Compiler Explorer
           <small>Phase-Ordering Research Tool</small>
         </div>
