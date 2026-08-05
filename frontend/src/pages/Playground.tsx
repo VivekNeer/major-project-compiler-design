@@ -67,12 +67,11 @@ export default function Playground({ source, setSource, examples }: SharedProps)
         <div className="panel" style={{ height: 480 }}>
           <div className="panel-head">
             <span>Pipeline Output</span>
-            <div className="row" style={{ gap: 4 }}>
+            <div className="seg">
               {(['tokens', 'ast', 'symbols', 'ir'] as Tab[]).map((t) => (
                 <button
                   key={t}
-                  className="btn small"
-                  style={tab === t ? { borderColor: 'var(--accent)' } : {}}
+                  className={tab === t ? 'on' : ''}
                   onClick={() => setTab(t)}
                 >
                   {t.toUpperCase()}

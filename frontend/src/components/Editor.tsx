@@ -1,30 +1,41 @@
 import CodeMirror from '@uiw/react-codemirror'
 import { cpp } from '@codemirror/lang-cpp'
 import { linter, type Diagnostic } from '@codemirror/lint'
-import { EditorView } from '@codemirror/view'
+import { createTheme } from '@uiw/codemirror-themes'
+import { tags as t } from '@lezer/highlight'
 import { useMemo } from 'react'
 import type { ApiError } from '../api'
 
-const darkTheme = EditorView.theme(
-  {
-    '&': { backgroundColor: '#181825', color: '#cdd6f4' },
-    '.cm-content': { caretColor: '#89b4fa', fontFamily: 'inherit' },
-    '.cm-gutters': {
-      backgroundColor: '#181825',
-      color: '#585b70',
-      border: 'none',
-    },
-    '.cm-activeLine': { backgroundColor: '#26263780' },
-    '.cm-activeLineGutter': { backgroundColor: '#262637' },
-    '&.cm-focused .cm-selectionBackground, .cm-selectionBackground': {
-      backgroundColor: '#31324488',
-    },
-    '.cm-lintRange-error': {
-      textDecoration: 'underline wavy #f38ba8',
-    },
+// Catppuccin-Mocha editor theme, matching the app tokens in index.css.
+const mocha = createTheme({
+  theme: 'dark',
+  settings: {
+    background: '#181825',
+    foreground: '#cdd6f4',
+    caret: '#89b4fa',
+    selection: '#31324499',
+    selectionMatch: '#45475a66',
+    lineHighlight: '#26263766',
+    gutterBackground: '#181825',
+    gutterForeground: '#585b70',
+    gutterActiveForeground: '#a6adc8',
+    gutterBorder: 'transparent',
+    fontFamily:
+      "'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace",
   },
-  { dark: true },
-)
+  styles: [
+    { tag: [t.keyword, t.controlKeyword, t.moduleKeyword], color: '#cba6f7' },
+    { tag: [t.typeName, t.standard(t.typeName)], color: '#f9e2af' },
+    { tag: t.number, color: '#fab387' },
+    { tag: [t.string, t.special(t.string)], color: '#a6e3a1' },
+    { tag: [t.comment, t.blockComment, t.lineComment], color: '#6c7086', fontStyle: 'italic' },
+    { tag: [t.function(t.variableName), t.function(t.propertyName)], color: '#89b4fa' },
+    { tag: t.variableName, color: '#cdd6f4' },
+    { tag: [t.operator, t.punctuation], color: '#94e2d5' },
+    { tag: t.bracket, color: '#9399b2' },
+    { tag: t.bool, color: '#fab387' },
+  ],
+})
 
 interface Props {
   value: string
@@ -61,8 +72,9 @@ export default function Editor({ value, onChange, error, height = '380px' }: Pro
       <CodeMirror
         value={value}
         height={height}
+        theme={mocha}
         onChange={onChange}
-        extensions={[cpp(), darkTheme, lintExt]}
+        extensions={[cpp(), lintExt]}
         basicSetup={{ foldGutter: false, autocompletion: false }}
       />
     </div>
