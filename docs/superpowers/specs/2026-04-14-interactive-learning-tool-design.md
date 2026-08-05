@@ -1,5 +1,7 @@
 # Interactive Compiler Learning Tool — Design Spec
 
+> **Status (2026-08): historical.** This document describes the original single-file web UI, since replaced by the React application in `frontend/` (see readme.md). Kept for project history.
+
 ## Overview
 
 A browser-based interactive learning tool that wraps the existing compiler infrastructure, enabling university students and self-learners to visualize and experiment with every compiler phase — from lexing through optimization pass ordering. Served as a single Python process with no JS build step.

@@ -1,32 +1,31 @@
-# React + TypeScript + Vite
+# Compiler Explorer frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+React + Vite + TypeScript source for the web application served by the
+FastAPI backend (`compiler/web/app.py`).
 
-Currently, two official plugins are available:
+## Development
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev      # dev server on :5173, proxies /api to the backend on :8080
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Run the backend in another terminal: `python -m compiler.web.app`.
+
+## Building
+
+```bash
+npm run build    # emits into ../compiler/web/static/ (committed to the repo)
+```
+
+The built output is committed so the app runs from a fresh clone without
+Node. Rebuild and commit `compiler/web/static/` whenever you change the
+frontend.
+
+## Layout
+
+- `src/App.tsx` — sidebar shell and section routing
+- `src/api.ts` — typed client for the compiler API
+- `src/pages/` — Playground, OptLab, AssemblyView, Explorer, Reference
+- `src/components/` — Editor (CodeMirror), PipelineRail, AstTree, etc.
+- Fonts are bundled via @fontsource; no CDN dependencies.
