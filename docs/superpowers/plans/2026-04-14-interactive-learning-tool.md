@@ -1,5 +1,7 @@
 # Interactive Compiler Learning Tool — Implementation Plan
 
+> **Status (2026-08): historical.** This document describes the original single-file web UI, since replaced by the React application in `frontend/` (see readme.md). Kept for project history.
+
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build a browser-based interactive learning tool that visualizes every compiler phase and lets students experiment with optimization pass orderings.

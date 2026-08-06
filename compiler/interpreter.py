@@ -40,6 +40,7 @@ class IRInterpreter:
         self._instructions = instructions
         self._vars: dict[str, int] = {}
         self._arrays: dict[str, list[int]] = {}
+        self._globals: dict[str, int] = {}
         self._output: list[int] = []
         self._step_count = 0
         self._opcode_freq: dict[str, int] = {}
@@ -58,6 +59,11 @@ class IRInterpreter:
         """Execute the IR program starting from main()."""
         if "main" not in self._func_index:
             raise InterpreterError("No main() function found")
+
+        # Initialise globals (top-level GLOBAL_DECLs run once, before main)
+        for inst in self._instructions:
+            if inst.opcode == IROpcode.GLOBAL_DECL and inst.dest:
+                self._globals[inst.dest] = const_value(inst.src1)
 
         result = self._execute_function("main", [])
 
@@ -198,6 +204,21 @@ class IRInterpreter:
             if inst.opcode == IROpcode.PRINT:
                 val = self._get_value(inst.src1)
                 self._output.append(val)
+                pc += 1
+                continue
+
+            if inst.opcode == IROpcode.GLOBAL_DECL:
+                # Handled once at program start
+                pc += 1
+                continue
+
+            if inst.opcode == IROpcode.GLOBAL_LOAD:
+                self._vars[inst.dest] = self._globals.get(inst.src1, 0)
+                pc += 1
+                continue
+
+            if inst.opcode == IROpcode.GLOBAL_STORE:
+                self._globals[inst.dest] = self._get_value(inst.src1)
                 pc += 1
                 continue
 

@@ -1,6 +1,20 @@
 # Benchmarking Phase Ordering Trade-offs in a Custom Compiler Infrastructure using MiBench
 
-A complete compiler infrastructure for a C subset language with 6 reorderable optimization passes, an IR interpreter for dynamic metrics, publication-quality benchmarking with MiBench-adapted programs, and an interactive browser-based learning tool.
+A complete compiler for a C subset, built to study one research question: **does the order in which optimization passes run change the quality of the generated code?** (Yes — by a lot.)
+
+The project includes 6 reorderable optimization passes, a semantic analyzer, an IR interpreter for dynamic metrics, a RISC-V RV32IM assembly backend, publication-quality benchmarking on 15 MiBench/PolyBench-adapted programs, and an interactive React web application for exploring all of it in the browser.
+
+## Quick Start
+
+```bash
+pip install -r requirements.txt
+
+# See the compiler at work on one program
+python -m compiler.main compiler/benchmarks/programs/factorial.c --optimize CF,CP,SR,AS,DCE,CSE
+
+# Launch the web app (recommended starting point)
+python -m compiler.web.app     # then open http://localhost:8080
+```
 
 ## Features
 
@@ -8,10 +22,12 @@ A complete compiler infrastructure for a C subset language with 6 reorderable op
 
 - **Lexer** -- tokenizer with line/column tracking, single-line and block comments
 - **Recursive Descent Parser** -- 6-level operator precedence, full error reporting
-- **AST** -- 15 node types as Python dataclasses
-- **Three-Address Code IR** -- 27 opcodes with `defined_var()`/`used_vars()` analysis
+- **AST** -- 20 node types as Python dataclasses
+- **Semantic Analyzer** -- collects *all* violations in one pass: undeclared variables, undefined functions, wrong argument counts, duplicate declarations, array/scalar misuse, non-constant global initializers
+- **Three-Address Code IR** -- 35 opcodes with `defined_var()`/`used_vars()` analysis
 - **Symbol Table** -- nested scopes with variable shadowing
 - **IR Interpreter** -- executes 3AC directly for dynamic instruction counts and output validation
+- **RISC-V RV32IM Backend** -- lowers optimized IR to GNU-syntax assembly (Linux user mode), with a built-in `print_int` runtime and interpreter-faithful semantics (`x/0 == 0`); validated by an in-repo RV32IM simulator
 
 ### 6 Optimization Passes
 
@@ -53,12 +69,14 @@ The **Pass Manager** generates all 721 full permutations for exhaustive phase-or
 - Geometric mean normalization per Fleming & Wallace (1986)
 - Correctness validation: every ordering verified against baseline output
 
-### Interactive Learning Tool (Web UI)
+### Interactive Web Application (React + FastAPI)
 
-- **Learn Mode** -- step-through visualization of every compiler phase (Tokens, AST, Symbol Table, IR, Optimization Diff, Execution)
-- **Explore Mode** -- drag-and-drop pass reordering with instant IR updates and metrics
-- 15 preloaded benchmark programs
-- Dark-themed, zero-dependency frontend served by FastAPI
+- **Playground** -- CodeMirror editor with semantic-error squiggles; inspect tokens, collapsible AST tree, symbol table, and IR
+- **Optimization Lab** -- drag-and-drop pass ordering with a per-pass stepping timeline: watch the IR shrink stage by stage with diffs and metric deltas
+- **Assembly** -- side-by-side IR and RISC-V output with hover-linked line mapping
+- **Phase-Ordering Explorer** -- runs all 721 orderings in the browser; interactive Pareto scatter (click a point for details) and top-orderings chart
+- **Reference** -- pass catalog, cost model, and language guide
+- 15 preloaded benchmark programs; legacy zero-dependency page still served at `/legacy`
 
 ## Project Structure
 
@@ -67,10 +85,13 @@ compiler/
   lexer.py                    # Tokenizer
   parser.py                   # Recursive descent parser
   ast_nodes.py                # AST node definitions
+  errors.py                   # Shared CompilerError exception hierarchy
+  semantic_analyzer.py        # Semantic checks between parse and IR gen
   symbol_table.py             # Scope-aware variable tracking
   ir.py                       # Three-Address Code definitions
   ir_generator.py             # AST -> IR translation
   interpreter.py              # IR interpreter (dynamic execution)
+  codegen_riscv.py            # RISC-V RV32IM assembly backend
   main.py                     # CLI entry point
   optimizations/
     constant_folding.py       # CF pass
@@ -85,12 +106,16 @@ compiler/
     visualizer.py             # Publication-quality plots (matplotlib)
     programs/                 # 15 MiBench- and PolyBench-adapted benchmark programs
   web/
-    app.py                    # FastAPI server
-    templates.py              # Single-file HTML/CSS/JS frontend
+    app.py                    # FastAPI server (API + static frontend)
+    templates.py              # Legacy single-file frontend (/legacy)
     api_models.py             # Pydantic request/response models
+    static/                   # Built React app (from frontend/)
+frontend/                     # React + Vite + TypeScript source
 tests/
-  test_compiler.py            # 83 compiler tests
-  test_web.py                 # 13 web API tests
+  test_compiler.py            # 101 compiler tests
+  test_web.py                 # 24 web API tests
+  test_new_features.py        # 58 semantic / language-feature / codegen tests
+  riscv_sim.py                # Minimal RV32IM simulator (test oracle for the backend)
 ```
 
 ## Setup
@@ -139,20 +164,51 @@ python -m compiler.main compiler/benchmarks/programs/factorial.c --benchmark
 python -m compiler.main --benchmark-all --output-dir benchmark_results
 ```
 
-This generates 54 publication-quality plots and a geometric mean summary table.
+This generates 91 publication-quality plots (6 per program plus one cross-program box plot) and a geometric mean summary table.
 
-### Launch the interactive learning tool
+### Emit RISC-V RV32IM assembly
+
+```bash
+# To stdout
+python -m compiler.main compiler/benchmarks/programs/factorial.c --optimize CF,CP,SR,AS,DCE,CSE --emit-asm
+
+# To a file
+python -m compiler.main compiler/benchmarks/programs/factorial.c -O CF,DCE -S factorial.s
+```
+
+The output is GNU-syntax RV32IM assembly for Linux user mode. To run it
+on real tooling (optional — the test suite validates it with a bundled
+simulator):
+
+```bash
+sudo apt install gcc-riscv64-linux-gnu qemu-user
+riscv64-linux-gnu-gcc -march=rv32im -mabi=ilp32 -static -nostdlib -o factorial factorial.s
+qemu-riscv32 ./factorial
+```
+
+### Launch the interactive web application
 
 ```bash
 python -m compiler.web.app
 ```
 
-Open `http://localhost:8080` in your browser.
+Open `http://localhost:8080` in your browser. The prebuilt React app in
+`compiler/web/static/` is served automatically; the legacy single-file UI
+remains at `http://localhost:8080/legacy`.
+
+To develop the frontend (requires Node 20+):
+
+```bash
+cd frontend
+npm install
+npm run dev      # dev server on :5173, proxies /api to :8080
+npm run build    # rebuilds compiler/web/static/
+```
 
 ## Running Tests
 
 ```bash
-# All tests (96 total)
+# All tests (183 total)
 python -m pytest -v
 
 # Compiler tests only
@@ -187,9 +243,10 @@ int main() {
 **Supported constructs:**
 
 - `int` type, integer literals, arithmetic (`+`, `-`, `*`, `/`, `%`)
+- Global variables (`int g = 5;` at file scope, constant initializers, stored in `.data` in the RISC-V backend)
 - Fixed-size 1D arrays (`int a[10];`), zero-initialised, with indexed load/store (`a[i]`, `a[i] = expr;`)
-- Comparison (`==`, `!=`, `<`, `>`, `<=`, `>=`), logical (`&&`, `||`, `!`)
-- `if`/`else`, `while` loops, block scoping `{ }`
+- Comparison (`==`, `!=`, `<`, `>`, `<=`, `>=`), logical (`&&`, `||`, `!`) with **C short-circuit evaluation**
+- `if`/`else`/`else if` chains, `while` and `for` loops, block scoping `{ }`
 - Functions with parameters, `return`, `print()`
 - Single-line (`//`) and block (`/* */`) comments
 
@@ -199,16 +256,23 @@ int main() {
 | --------- | --------- | -------------- | ------------------- |
 | factorial | 40 insts  | 16 insts       | 60.0%               |
 | isqrt     | 50 insts  | 27 insts       | 46.0%               |
-| sha_mix   | 106 insts | 68 insts       | 35.8%               |
-| power     | 71 insts  | 47 insts       | 33.8%               |
-| fibonacci | 22 insts  | 13 insts       | 40.9%               |
 | bitcount  | 33 insts  | 19 insts       | 42.4%               |
+| fibonacci | 22 insts  | 13 insts       | 40.9%               |
 | collatz   | 42 insts  | 26 insts       | 38.1%               |
+| sha_mix   | 106 insts | 68 insts       | 35.8%               |
+| jacobi1d  | 76 insts  | 50 insts       | 34.2%               |
+| jacobi2d  | 144 insts | 95 insts       | 34.0%               |
+| power     | 71 insts  | 47 insts       | 33.8%               |
 | gcd       | 21 insts  | 14 insts       | 33.3%               |
+| gemm      | 164 insts | 119 insts      | 27.4%               |
+| 2mm       | 252 insts | 185 insts      | 26.6%               |
+| gesummv   | 106 insts | 78 insts       | 26.4%               |
+| atax      | 101 insts | 78 insts       | 22.8%               |
+| bicg      | 94 insts  | 73 insts       | 22.3%               |
 
-**Geometric mean across all programs:** 0.7624 code size ratio (23.8% average reduction).
+**Geometric mean across all 15 programs (best orderings):** 0.6426 code size ratio (35.7% average reduction) and 0.7950 estimated-cycle ratio (20.5% reduction).
 
-Best ordering consistently: **CF first** -- Constant Folding enables the most downstream optimization opportunities.
+The per-program winner is consistently **CF -> CSE -> CP -> DCE -> SR -> AS**: Constant Folding early exposes the most downstream opportunities, and Dead Code Elimination late sweeps up what the other passes made removable. Every one of the 721 orderings produces output identical to the unoptimized baseline on all 15 programs.
 
 ## References
 

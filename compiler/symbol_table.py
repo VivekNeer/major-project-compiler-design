@@ -8,6 +8,7 @@ scope; leaving it pops.
 
 from __future__ import annotations
 from dataclasses import dataclass, field
+from compiler.errors import CompilerError
 
 
 @dataclass
@@ -20,7 +21,7 @@ class Symbol:
     array_size: int | None = None  # Element count, set when var_type == "array"
 
 
-class SymbolTableError(Exception):
+class SymbolTableError(CompilerError):
     pass
 
 

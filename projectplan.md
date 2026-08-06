@@ -1,3 +1,5 @@
+> **Status (2026-08): historical.** Original course proposal. All four phases are complete; see readme.md for the current state of the project.
+
  **"Benchmarking Phase Ordering Trade-offs in a Custom Compiler Infrastructure using MiBench"**
 
 ### **Phase 1: Front-End Infrastructure (Language, Lexer, & Parser)**

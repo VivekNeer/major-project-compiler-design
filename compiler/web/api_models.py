@@ -14,3 +14,13 @@ class OptimizeRequest(BaseModel):
 
 class BenchmarkRequest(BaseModel):
     source: str
+
+
+class OptimizeStepsRequest(BaseModel):
+    source: str
+    pass_order: list[str]
+
+
+class AssemblyRequest(BaseModel):
+    source: str
+    pass_order: list[str] = []

@@ -52,3 +52,7 @@ Thumbs.db
 .vscode/
 .idea/
 .venv_test/
+
+# Frontend
+node_modules/
+frontend/dist/
