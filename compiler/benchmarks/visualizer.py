@@ -39,16 +39,30 @@ def plot_tradeoff_scatter(
     title: str = "Phase-Ordering Trade-off: Code Size vs. Estimated Cycles",
     output_path: str = "tradeoff_scatter.png",
 ) -> str:
-    """Scatter plot with Pareto front overlay."""
+    """Scatter plot with Pareto front overlay.
+
+    Many orderings land on the same (code_size, estimated_cycles)
+    point — annotating every one of them (hundreds, on a full-
+    permutation run) stacks labels on top of each other into an
+    illegible blob. Plot one point per distinct outcome instead,
+    preferring the baseline as its group's label when they coincide.
+    """
     _ensure_matplotlib()
     plt, np = _plt, _np
 
-    fig, ax = plt.subplots(figsize=(10, 7))
-    sizes = [r.code_size for r in results]
-    cycles = [r.estimated_cycles for r in results]
-    labels = [r.pass_order_label for r in results]
+    groups: dict[tuple[int, float], BenchmarkMetrics] = {}
+    for r in results:
+        key = (r.code_size, r.estimated_cycles)
+        if key not in groups or not r.pass_order:
+            groups[key] = r
+    deduped = list(groups.values())
 
-    scatter = ax.scatter(sizes, cycles, c=range(len(results)),
+    fig, ax = plt.subplots(figsize=(10, 7))
+    sizes = [r.code_size for r in deduped]
+    cycles = [r.estimated_cycles for r in deduped]
+    labels = [r.pass_order_label for r in deduped]
+
+    scatter = ax.scatter(sizes, cycles, c=range(len(deduped)),
                          cmap="viridis", s=100, edgecolors="black", zorder=5)
 
     for i, label in enumerate(labels):
@@ -260,7 +274,16 @@ def plot_reduction_heatmap(
     title: str = "Optimization Effectiveness (% Reduction from Baseline)",
     output_path: str = "reduction_heatmap.png",
 ) -> str:
-    """Heatmap of percentage reduction across orderings."""
+    """Heatmap of percentage reduction across orderings.
+
+    Many distinct pass orderings produce identical (code_size, cycles,
+    dynamic_count) outcomes — e.g. reordering two passes that never
+    interact. Plotting one column per raw ordering therefore produces
+    a degenerate, unreadably wide figure on full-permutation datasets
+    (hundreds of columns). Instead, orderings are grouped by their
+    outcome tuple, one column per distinct outcome, labelled with a
+    representative ordering and how many orderings share it.
+    """
     _ensure_matplotlib()
     plt, np = _plt, _np
 
@@ -269,19 +292,33 @@ def plot_reduction_heatmap(
     if not baseline or not optimized:
         return output_path
 
-    labels = [r.pass_order_label for r in optimized]
-    size_red = [(1 - r.code_size / baseline.code_size) * 100 if baseline.code_size else 0
-                for r in optimized]
-    cycle_red = [(1 - r.estimated_cycles / baseline.estimated_cycles) * 100
-                 if baseline.estimated_cycles else 0 for r in optimized]
+    groups: dict[tuple[int, float, int], list[BenchmarkMetrics]] = {}
+    for r in optimized:
+        key = (r.code_size, r.estimated_cycles, r.dynamic_instruction_count)
+        groups.setdefault(key, []).append(r)
+
+    def _pct(current: float, base: float) -> float:
+        return (1 - current / base) * 100 if base else 0
+
+    grouped = sorted(
+        groups.items(),
+        key=lambda item: _pct(item[0][0], baseline.code_size),
+        reverse=True,
+    )
+
+    labels = [
+        f"{members[0].pass_order_label} (x{len(members)})"
+        for _key, members in grouped
+    ]
+    size_red = [_pct(key[0], baseline.code_size) for key, _members in grouped]
+    cycle_red = [_pct(key[1], baseline.estimated_cycles) for key, _members in grouped]
 
     # Include dynamic metric if available
     rows = ["Code Size", "Est. Cycles"]
     data = [size_red, cycle_red]
 
     if baseline.dynamic_instruction_count > 0:
-        dyn_red = [(1 - r.dynamic_instruction_count / baseline.dynamic_instruction_count) * 100
-                   if baseline.dynamic_instruction_count else 0 for r in optimized]
+        dyn_red = [_pct(key[2], baseline.dynamic_instruction_count) for key, _members in grouped]
         rows.append("Dynamic Insts")
         data.append(dyn_red)
 
