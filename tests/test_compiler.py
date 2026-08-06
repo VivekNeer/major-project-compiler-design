@@ -529,6 +529,54 @@ class TestVisualizer:
         assert matrix[i_a][i_b] == pytest.approx(-8.0)
         assert matrix[i_b][i_a] == pytest.approx(8.0)
 
+    def _make_metrics_with_duplicates(self):
+        """20 distinct outcomes repeated to simulate a full-permutation
+        run (e.g. 720 orderings) where most orderings share an outcome."""
+        from compiler.benchmarks.metric_collector import BenchmarkMetrics
+
+        def make(order, size, cycles, dyn):
+            return BenchmarkMetrics(
+                pass_order=order,
+                pass_order_label=" -> ".join(order) if order else "Baseline (none)",
+                code_size=size,
+                estimated_cycles=float(cycles),
+                total_instructions=size,
+                instruction_breakdown={},
+                dynamic_instruction_count=dyn,
+            )
+
+        results = [make([], 100, 200.0, 500)]
+        for i in range(20):
+            # Each distinct outcome repeated several times under different
+            # (irrelevant, for this test) pass orderings.
+            for rep in range(6):
+                results.append(
+                    make([f"P{i}", f"Q{rep}"], 50 + i, 100.0 + i, 250 + i)
+                )
+        return results
+
+    def test_reduction_heatmap_dedupes_repeated_outcomes(self, tmp_path):
+        from compiler.benchmarks.visualizer import plot_reduction_heatmap
+        from PIL import Image
+
+        out = tmp_path / "heatmap.png"
+        plot_reduction_heatmap(self._make_metrics_with_duplicates(), output_path=str(out))
+
+        # 120 orderings collapsing to 20 distinct outcomes must not
+        # produce a figure that scales with the raw ordering count
+        # (the pre-fix behaviour: width = len(labels) * 0.7 * dpi).
+        width, _height = Image.open(out).size
+        assert width < 4000
+
+    def test_tradeoff_scatter_dedupes_repeated_outcomes(self, tmp_path):
+        from compiler.benchmarks.visualizer import plot_tradeoff_scatter
+
+        out = tmp_path / "scatter.png"
+        # Must not raise — a stale `c=range(len(results))` against a
+        # deduped, shorter points array would mismatch array lengths.
+        plot_tradeoff_scatter(self._make_metrics_with_duplicates(), output_path=str(out))
+        assert out.exists()
+
 
 # ======================================================================
 # Phase 4: Metrics Tests
