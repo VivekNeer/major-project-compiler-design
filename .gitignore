@@ -24,6 +24,7 @@ htmlcov/
 build/
 dist/
 *.egg-info/
+*.zip
 
 # Benchmark and generated outputs
 benchmark_results/

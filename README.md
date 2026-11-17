@@ -72,6 +72,11 @@ The **Pass Manager** generates all 721 full permutations for exhaustive phase-or
 | bicg      | PolyBench/C linear-algebra/kernels/bicg | Two accumulators updated from one shared matrix load  |
 | gesummv   | PolyBench/C linear-algebra/blas/gesummv | Two matrix-vector products combined by a scalar step |
 
+> **Dataset Information:**
+> - **Included Benchmark Dataset:** All 15 benchmark programs are packaged in [`compiler/benchmarks/programs/`](compiler/benchmarks/programs/).
+> - **Online Repository & Dataset Link:** [https://github.com/VivekNeer/major-project-compiler-design](https://github.com/VivekNeer/major-project-compiler-design)
+> - **Dataset Regeneration:** Run `python -m compiler.main --benchmark-all` to re-execute all 10,815 compilations and regenerate the complete benchmark metrics dataset.
+
 ### Benchmarking & Visualization
 
 - 3 metric types: static code size, weighted cycle estimate (ARM Cortex-M cost model), dynamic instruction count
