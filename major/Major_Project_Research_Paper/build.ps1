@@ -5,12 +5,13 @@
     Runs two passes of pdflatex to resolve references and citations,
     then cleans up intermediate files.
 .PARAMETER Target
-    "copy"     - Compiles "Revised Paper (Final) - Copy.tex" (default)
+    "copy2"    - Compiles "Revised Paper (Final) - Copy 2.tex" (default: A4, uniform font size)
+    "copy"     - Compiles "Revised Paper (Final) - Copy.tex"
     "original" - Compiles "Revised Paper (Final).tex"
-    "all"      - Compiles both
+    "all"      - Compiles all versions
 #>
 param(
-    [string]$Target = "copy"
+    [string]$Target = "copy2"
 )
 
 $ErrorActionPreference = "Stop"
@@ -46,6 +47,9 @@ function Invoke-PaperBuild {
     Write-Host "Successfully generated '$JobName.pdf'" -ForegroundColor Green
 }
 
+if ($Target -eq "copy2" -or $Target -eq "all") {
+    Invoke-PaperBuild -JobName "Revised Paper (Final) - Copy 2"
+}
 if ($Target -eq "copy" -or $Target -eq "all") {
     Invoke-PaperBuild -JobName "Revised Paper (Final) - Copy"
 }
