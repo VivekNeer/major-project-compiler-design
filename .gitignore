@@ -28,6 +28,20 @@ dist/
 # Benchmark and generated outputs
 benchmark_results/
 *.png
+!major/**/*.png
+!major/*.png
+
+# LaTeX build artifacts
+*.aux
+*.lof
+*.lot
+*.out
+*.toc
+*.bbl
+*.blg
+*.synctex.gz
+*.fls
+*.fdb_latexmk
 
 # Repo notes and review artifacts
 review.md

@@ -1,0 +1,150 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+2 0 obj
+<< /Length 3817 >>
+stream
+BT
+/F1 11 Tf
+11 TL
+1 0 0 1 48.00 787.89 Tm (WEEKS 14 TO 29 DRAFT TIMELINE) Tj
+1 0 0 1 48.00 773.89 Tm () Tj
+1 0 0 1 48.00 759.89 Tm () Tj
+1 0 0 1 48.00 745.89 Tm (Note: This is a draft/proposed timeline format for report planning. It is not) Tj
+1 0 0 1 48.00 731.89 Tm (a factual record of completed work.) Tj
+1 0 0 1 48.00 717.89 Tm () Tj
+1 0 0 1 48.00 703.89 Tm (Week 14 : [2026-04-20 - 2026-04-26]) Tj
+1 0 0 1 48.00 689.89 Tm (Aniket: Ran statistical checks and prepared reproducibility instructions.) Tj
+1 0 0 1 48.00 675.89 Tm (Kushal: Completed trade-off analysis notes and methods write-up.) Tj
+1 0 0 1 48.00 661.89 Tm (Manas: Drafted results tables and figure captions.) Tj
+1 0 0 1 48.00 647.89 Tm (Vivek: Finalized reproducible benchmarking logs and visualization export.) Tj
+1 0 0 1 48.00 633.89 Tm () Tj
+1 0 0 1 48.00 619.89 Tm (Week 15 : [2026-04-27 - 2026-05-03]) Tj
+1 0 0 1 48.00 605.89 Tm (Aniket: Documented pass-ordering controls and CLI usage.) Tj
+1 0 0 1 48.00 591.89 Tm (Kushal: Reviewed compiler pipeline outputs for consistency.) Tj
+1 0 0 1 48.00 577.89 Tm (Manas: Cleaned benchmark datasets and validated inputs.) Tj
+1 0 0 1 48.00 563.89 Tm (Vivek: Refined the experiment harness for batch execution.) Tj
+1 0 0 1 48.00 549.89 Tm () Tj
+1 0 0 1 48.00 535.89 Tm (Week 16 : [2026-05-04 - 2026-05-10]) Tj
+1 0 0 1 48.00 521.89 Tm (Aniket: Polished grammar actions and parser recovery notes.) Tj
+1 0 0 1 48.00 507.89 Tm (Kushal: Verified lexer and parser integration edge cases.) Tj
+1 0 0 1 48.00 493.89 Tm (Manas: Prepared additional sample programs and parse cases.) Tj
+1 0 0 1 48.00 479.89 Tm (Vivek: Expanded automation for benchmark collection.) Tj
+1 0 0 1 48.00 465.89 Tm () Tj
+1 0 0 1 48.00 451.89 Tm (Week 17 : [2026-05-11 - 2026-05-17]) Tj
+1 0 0 1 48.00 437.89 Tm (Aniket: Reviewed parser-to-IR flow and integration checkpoints.) Tj
+1 0 0 1 48.00 423.89 Tm (Kushal: Stabilized optimization-pass test scenarios.) Tj
+1 0 0 1 48.00 409.89 Tm (Manas: Summarized AST and IR validation outcomes.) Tj
+1 0 0 1 48.00 395.89 Tm (Vivek: Packaged baseline results for comparison.) Tj
+1 0 0 1 48.00 381.89 Tm () Tj
+1 0 0 1 48.00 367.89 Tm (Week 18 : [2026-05-18 - 2026-05-24]) Tj
+1 0 0 1 48.00 353.89 Tm (Aniket: Aligned pass sequencing logic with experimental runs.) Tj
+1 0 0 1 48.00 339.89 Tm (Kushal: Documented pass interaction observations.) Tj
+1 0 0 1 48.00 325.89 Tm (Manas: Cross-checked benchmark outputs against expected behavior.) Tj
+1 0 0 1 48.00 311.89 Tm (Vivek: Generated performance dashboards and summary plots.) Tj
+1 0 0 1 48.00 297.89 Tm () Tj
+1 0 0 1 48.00 283.89 Tm (Week 19 : [2026-05-25 - 2026-05-31]) Tj
+1 0 0 1 48.00 269.89 Tm (Aniket: Reviewed dead-code and copy-propagation pipeline behavior.) Tj
+1 0 0 1 48.00 255.89 Tm (Kushal: Consolidated IR and optimizer validation notes.) Tj
+1 0 0 1 48.00 241.89 Tm (Manas: Refined micro-benchmark input coverage.) Tj
+1 0 0 1 48.00 227.89 Tm (Vivek: Prepared dataset exports for analysis.) Tj
+1 0 0 1 48.00 213.89 Tm () Tj
+1 0 0 1 48.00 199.89 Tm (Week 20 : [2026-06-01 - 2026-06-07]) Tj
+1 0 0 1 48.00 185.89 Tm (Aniket: Finalized scheduler and ordering-control documentation.) Tj
+1 0 0 1 48.00 171.89 Tm (Kushal: Verified constant-folding and CSE outcomes.) Tj
+1 0 0 1 48.00 157.89 Tm (Manas: Updated captions and references for figures.) Tj
+1 0 0 1 48.00 143.89 Tm (Vivek: Automated report artifact generation.) Tj
+1 0 0 1 48.00 129.89 Tm () Tj
+1 0 0 1 48.00 115.89 Tm (Week 21 : [2026-06-08 - 2026-06-14]) Tj
+1 0 0 1 48.00 101.89 Tm (Aniket: Checked reproducibility steps and command examples.) Tj
+1 0 0 1 48.00 87.89 Tm (Kushal: Reviewed code-size reduction summaries.) Tj
+1 0 0 1 48.00 73.89 Tm (Manas: Organized supporting appendix material.) Tj
+1 0 0 1 48.00 59.89 Tm (Vivek: Performed final benchmarking consistency checks.) Tj
+ET
+endstream
+endobj
+3 0 obj
+<< /Length 3458 >>
+stream
+BT
+/F1 11 Tf
+11 TL
+1 0 0 1 48.00 787.89 Tm () Tj
+1 0 0 1 48.00 773.89 Tm (Week 22 : [2026-06-15 - 2026-06-21]) Tj
+1 0 0 1 48.00 759.89 Tm (Aniket: Reviewed integration flow and pipeline descriptions.) Tj
+1 0 0 1 48.00 745.89 Tm (Kushal: Refined methods notes on compiler passes.) Tj
+1 0 0 1 48.00 731.89 Tm (Manas: Validated final benchmark tables.) Tj
+1 0 0 1 48.00 717.89 Tm (Vivek: Packaged scripts and logs for submission.) Tj
+1 0 0 1 48.00 703.89 Tm () Tj
+1 0 0 1 48.00 689.89 Tm (Week 23 : [2026-06-22 - 2026-06-28]) Tj
+1 0 0 1 48.00 675.89 Tm (Aniket: Ensured the CLI and pass manager descriptions were consistent.) Tj
+1 0 0 1 48.00 661.89 Tm (Kushal: Cross-validated optimization ordering examples.) Tj
+1 0 0 1 48.00 647.89 Tm (Manas: Polished discussion points for results.) Tj
+1 0 0 1 48.00 633.89 Tm (Vivek: Prepared final visualization outputs.) Tj
+1 0 0 1 48.00 619.89 Tm () Tj
+1 0 0 1 48.00 605.89 Tm (Week 24 : [2026-06-29 - 2026-07-05]) Tj
+1 0 0 1 48.00 591.89 Tm (Aniket: Checked final experiment summaries for coherence.) Tj
+1 0 0 1 48.00 577.89 Tm (Kushal: Summarized compiler architecture contributions.) Tj
+1 0 0 1 48.00 563.89 Tm (Manas: Aligned the conclusion with results.) Tj
+1 0 0 1 48.00 549.89 Tm (Vivek: Completed artifact organization and archive preparation.) Tj
+1 0 0 1 48.00 535.89 Tm () Tj
+1 0 0 1 48.00 521.89 Tm (Week 25 : [2026-07-06 - 2026-07-12]) Tj
+1 0 0 1 48.00 507.89 Tm (Aniket: Finalized the explanation of the optimization pipeline.) Tj
+1 0 0 1 48.00 493.89 Tm (Kushal: Validated pass-sequence examples.) Tj
+1 0 0 1 48.00 479.89 Tm (Manas: Updated supplementary notes and data dictionary.) Tj
+1 0 0 1 48.00 465.89 Tm (Vivek: Reviewed reproducibility and submission checklist items.) Tj
+1 0 0 1 48.00 451.89 Tm () Tj
+1 0 0 1 48.00 437.89 Tm (Week 26 : [2026-07-13 - 2026-07-19]) Tj
+1 0 0 1 48.00 423.89 Tm (Aniket: Verified grammar, parser, and IR terminology consistency.) Tj
+1 0 0 1 48.00 409.89 Tm (Kushal: Reviewed benchmark labels and annotations.) Tj
+1 0 0 1 48.00 395.89 Tm (Manas: Refined tables for report readability.) Tj
+1 0 0 1 48.00 381.89 Tm (Vivek: Prepared final experiment-readme wording.) Tj
+1 0 0 1 48.00 367.89 Tm () Tj
+1 0 0 1 48.00 353.89 Tm (Week 27 : [2026-07-20 - 2026-07-26]) Tj
+1 0 0 1 48.00 339.89 Tm (Aniket: Finalized the report narrative around phase ordering trade-offs.) Tj
+1 0 0 1 48.00 325.89 Tm (Kushal: Reviewed summary statements for correctness.) Tj
+1 0 0 1 48.00 311.89 Tm (Manas: Checked references and appendix cross-links.) Tj
+1 0 0 1 48.00 297.89 Tm (Vivek: Assembled final deliverables for handoff.) Tj
+1 0 0 1 48.00 283.89 Tm () Tj
+1 0 0 1 48.00 269.89 Tm (Week 28 : [2026-07-27 - 2026-08-02]) Tj
+1 0 0 1 48.00 255.89 Tm (Aniket: Checked the submission package structure and completeness.) Tj
+1 0 0 1 48.00 241.89 Tm (Kushal: Reviewed technical descriptions for clarity.) Tj
+1 0 0 1 48.00 227.89 Tm (Manas: Polished presentation-ready material.) Tj
+1 0 0 1 48.00 213.89 Tm (Vivek: Completed last-pass verification of scripts and plots.) Tj
+1 0 0 1 48.00 199.89 Tm () Tj
+1 0 0 1 48.00 185.89 Tm (Week 29 : [2026-08-03 - 2026-08-05]) Tj
+1 0 0 1 48.00 171.89 Tm (Aniket: Completed the final pass on experimental documentation.) Tj
+1 0 0 1 48.00 157.89 Tm (Kushal: Confirmed artifact naming and packaging.) Tj
+1 0 0 1 48.00 143.89 Tm (Manas: Reviewed final report consistency.) Tj
+1 0 0 1 48.00 129.89 Tm (Vivek: Performed final archive and submission verification.) Tj
+ET
+endstream
+endobj
+4 0 obj
+<< /Type /Page /Parent 6 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 1 0 R >> >> /Contents 2 0 R >>
+endobj
+5 0 obj
+<< /Type /Page /Parent 6 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 1 0 R >> >> /Contents 3 0 R >>
+endobj
+6 0 obj
+<< /Type /Pages /Kids [4 0 R 5 0 R] /Count 2 >>
+endobj
+7 0 obj
+<< /Type /Catalog /Pages 6 0 R >>
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000000009 00000 n 
+0000000079 00000 n 
+0000003948 00000 n 
+0000007458 00000 n 
+0000007590 00000 n 
+0000007722 00000 n 
+0000007785 00000 n 
+trailer
+<< /Size 8 /Root 7 0 R >>
+startxref
+7834
+%%EOF

@@ -1,0 +1,252 @@
+\chapter{Grammar of the Source Language}
+\lstset{basicstyle=\ttfamily\scriptsize}
+
+The grammar below is the one implemented by the recursive-descent parser, written in an informal EBNF. Terminals are in quotation marks or upper case; braces denote repetition and square brackets denote optional parts.
+
+\begin{lstlisting}[numbers=none, caption={EBNF grammar of the C subset}, label={lst:grammar}]
+program         = { global_decl | function_decl } ;
+global_decl     = "int" IDENT [ "=" [ "-" ] NUMBER ] ";" ;
+function_decl   = "int" IDENT "(" [ param_list ] ")" block ;
+param_list      = "int" IDENT { "," "int" IDENT } ;
+block           = "{" { statement } "}" ;
+statement       = var_decl | array_decl | if_stmt | while_stmt | for_stmt
+                | return_stmt | print_stmt | block | assign_or_expr_stmt ;
+var_decl        = "int" IDENT [ "=" expr ] ";" ;
+array_decl      = "int" IDENT "[" NUMBER "]" ";" ;
+if_stmt         = "if" "(" expr ")" block [ "else" ( block | if_stmt ) ] ;
+while_stmt      = "while" "(" expr ")" block ;
+for_stmt        = "for" "(" [ var_decl | simple_stmt ";" ] [ expr ] ";"
+                  [ simple_stmt ] ")" block ;
+return_stmt     = "return" [ expr ] ";" ;
+print_stmt      = "print" "(" expr ")" ";" ;
+assign_or_expr_stmt = simple_stmt ";" ;
+simple_stmt     = expr [ "=" expr ] ;
+                  (* assignment target must be IDENT or IDENT "[" expr "]" *)
+expr            = or_expr ;
+or_expr         = and_expr { "||" and_expr } ;
+and_expr        = equality { "&&" equality } ;
+equality        = comparison { ( "==" | "!=" ) comparison } ;
+comparison      = addition { ( "<" | ">" | "<=" | ">=" ) addition } ;
+addition        = multiplication { ( "+" | "-" ) multiplication } ;
+multiplication  = unary { ( "*" | "/" | "%" ) unary } ;
+unary           = ( "-" | "!" ) unary | primary ;
+primary         = NUMBER
+                | IDENT [ "(" [ expr { "," expr } ] ")" | "[" expr "]" ]
+                | "(" expr ")" ;
+\end{lstlisting}
+
+Tokens: \code{NUMBER} is a non-empty sequence of decimal digits not immediately followed by a letter or underscore; \code{IDENT} is a letter or underscore followed by letters, digits, or underscores, excluding the seven keywords \code{int}, \code{if}, \code{else}, \code{while}, \code{for}, \code{return}, and \code{print}. Whitespace and both comment forms (\code{//} to end of line and \code{/* ... */}) are ignored between tokens.
+
+\chapter{Intermediate Representation Opcode Reference}
+
+Table~\ref{tab:opcode-ref} lists every opcode with its printed form, the variable it defines, the variables it uses, and its cost in the cycle model. Operands written in lower case are variable, temporary, or label names; \code{k} is an integer literal. Instructions marked ``side effect'' are never removed by dead code elimination.
+
+\begin{table}[!ht]
+\centering\scriptsize\renewcommand{\arraystretch}{1.0}
+\caption{Complete opcode reference}
+\label{tab:opcode-ref}
+\begin{tabular}{L{2.6cm} L{3.6cm} L{1.2cm} L{1.4cm} C{1.3cm} L{3.4cm}}
+\toprule
+\textbf{Opcode} & \textbf{Printed form} & \textbf{Defines} & \textbf{Uses} & \textbf{Cost} & \textbf{Notes}\\
+\midrule
+ADD, SUB, MUL, DIV, MOD & \code{d = a op b} & d & a, b & 1, 1, 3, 12, 12 & DIV, MOD by 0 give 0\\
+NEG & \code{d = -a} & d & a & 1 & \\
+EQ, NEQ, LT, GT, LTE, GTE & \code{d = a cmp b} & d & a, b & 1 & result 0 or 1\\
+AND, OR & \code{d = a \&\& b}, \code{d = a || b} & d & a, b & 1 & eager; result 0 or 1\\
+NOT & \code{d = !a} & d & a & 1 & \\
+COPY & \code{d = a} & d & a & 1 & \\
+LOAD\_CONST & \code{d = k} & d & -- & 1 & \\
+LABEL & \code{L:} & -- & -- & 0 & structural; resets pass state\\
+JUMP & \code{goto L} & -- & -- & 2 & side effect\\
+JUMP\_IF\_TRUE & \code{if a goto L} & -- & a & 2 & side effect\\
+JUMP\_IF\_FALSE & \code{iffalse a goto L} & -- & a & 2 & side effect\\
+PARAM & \code{param a} & -- & a & 1 & side effect; queued for CALL\\
+CALL & \code{d = call f, n} & d & -- & 5 & side effect; resets pass state\\
+RETURN & \code{return [a]} & -- & a & 3 & side effect\\
+FUNC\_BEGIN & \code{func f:} & -- & -- & 0 & structural\\
+FUNC\_END & \code{end func f} & -- & -- & 0 & structural\\
+FUNC\_PARAM & \code{param\_decl p} & -- & -- & 0 & binds argument to p\\
+PRINT & \code{print a} & -- & a & 10 & side effect; output oracle\\
+ARR\_DECL & \code{arr a[k]} & -- & -- & 0 & zero-initialized\\
+ARR\_LOAD & \code{d = a[i]} & d & i & 2 & never cached by CSE\\
+ARR\_STORE & \code{a[i] = v} & -- & i, v & 2 & side effect\\
+GLOBAL\_DECL & \code{global g = k} & -- & -- & 0 & .data in back end\\
+GLOBAL\_LOAD & \code{d = @g} & d & -- & 2 & \\
+GLOBAL\_STORE & \code{@g = a} & -- & a & 2 & side effect\\
+NOP & \code{nop} & -- & -- & 0 & from folded jumps; not printed\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\chapter{Complete Compilation Trace of the factorial Benchmark}
+
+This appendix shows every artefact the compiler produces for the \code{factorial} benchmark under the best ordering, so that the numbers reported in Chapter 5 can be checked by hand.
+
+\begin{lstlisting}[language=CSubset, caption={Source of the factorial benchmark}, label={lst:factorial-src}]
+int factorial(int n) {
+    int result = 1;
+    int i = 1;
+    while (i <= n) {
+        result = result * i;
+        i = i + 1;
+    }
+    return result;
+}
+
+int main() {
+    /* Constant expressions that can be folded */
+    int base = 2 + 3;
+    int extra = 10 - 5;
+
+    int val = factorial(base);
+    print(val);
+
+    /* Dead code: result never used */
+    int unused = 42 * 2;
+    int also_unused = unused + 100;
+
+    /* Common subexpression: base + extra computed twice */
+    int sum1 = base + extra;
+    int sum2 = base + extra;
+    print(sum1);
+    print(sum2);
+
+    return 0;
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=ThreeAC, caption={Unoptimized three-address code: 40 instructions counted for code size, 81 estimated cycles, 81 instructions executed. Output: 120, 10, 10.}, label={lst:factorial-base}]
+func factorial:
+  param_decl n
+  t0 = 1
+  result = t0
+  t1 = 1
+  i = t1
+L0:
+  t2 = i <= n
+  iffalse t2 goto L1
+  t3 = result * i
+  result = t3
+  t4 = 1
+  t5 = i + t4
+  i = t5
+  goto L0
+L1:
+  return result
+end func factorial
+func main:
+  t6 = 2
+  t7 = 3
+  t8 = t6 + t7
+  base = t8
+  t9 = 10
+  t10 = 5
+  t11 = t9 - t10
+  extra = t11
+  param base
+  t12 = call factorial, 1
+  val = t12
+  print val
+  t13 = 42
+  t14 = 2
+  t15 = t13 * t14
+  unused = t15
+  t16 = 100
+  t17 = unused + t16
+  also_unused = t17
+  t18 = base + extra
+  sum1 = t18
+  t19 = base + extra
+  sum2 = t19
+  print sum1
+  print sum2
+  t20 = 0
+  return t20
+end func main
+\end{lstlisting}
+
+\begin{lstlisting}[language=ThreeAC, caption={After CF, CSE, CP, DCE, SR, AS: 16 instructions, 55 estimated cycles, 53 instructions executed. Output: 120, 10, 10 (identical).}, label={lst:factorial-opt}]
+func factorial:
+  param_decl n
+  result = 1
+  i = 1
+L0:
+  t2 = i <= n
+  iffalse t2 goto L1
+  t3 = result * i
+  result = t3
+  t5 = i + 1
+  i = t5
+  goto L0
+L1:
+  return result
+end func factorial
+func main:
+  param 5
+  t12 = call factorial, 1
+  print t12
+  print 10
+  print 10
+  return 0
+end func main
+\end{lstlisting}
+
+Note that the loop body of \code{factorial} is not shortened: \code{result = t3} and \code{i = t5} survive because \code{result} and \code{i} are redefined on every iteration, so the single-assignment condition for constant propagation does not hold and the copies cannot be propagated across the loop label. This is the cost of block-local analysis, discussed in Chapter 5.
+
+The RV32IM assembly generated from the optimized program is 59 instructions long against 119 for the unoptimized program; it can be viewed with \code{python -m compiler.main compiler/benchmarks/programs/factorial.c -O CF,CSE,CP,DCE,SR,AS --emit-asm} or on the Assembly page of the web application (\fig{fig:gui-assembly}).
+
+\chapter{Test Suite Summary}
+
+The test suite is run with \code{python -m pytest}; all 185 test cases pass in about four seconds on the reference machine. Tables~\ref{tab:tests} and~\ref{tab:tests2} summarize the suite by test class.
+
+\begin{table}[H]
+\centering\scriptsize\renewcommand{\arraystretch}{1.0}
+\caption{Automated test suite by module and class: compiler core}
+\label{tab:tests}
+\begin{tabular}{L{2.4cm} L{5.0cm} C{0.9cm} L{5.0cm}}
+\toprule
+\textbf{Module} & \textbf{Test class} & \textbf{Cases} & \textbf{What is verified}\\
+\midrule
+\code{test\_compiler.py}
+ & TestLexer & 12 & tokens, comments, positions, lexical errors\\
+ & TestParser & 11 & every statement form, precedence, parse errors\\
+ & TestSymbolTable & 5 & scopes, shadowing, duplicates\\
+ & TestIRGenerator & 8 & lowering of each construct, IR formatting\\
+ & TestConstantFolding & 3 & folding, propagation, non-folding of variables\\
+ & TestDeadCodeElimination & 3 & dead assignments, unreachable code, liveness\\
+ & TestCommonSubexpression\-Elimination & 4 & reuse, invalidation on redefinition\\
+ & TestPassManager & 5 & orderings, validation, description\\
+ & TestVisualizer & 3 & interaction matrix, plot de-duplication\\
+ & TestMetrics & 6 & code size, cycles, array costs, breakdown\\
+ & TestEndToEnd & 3 & all orderings valid; optimization never grows code\\
+ & TestCopyPropagation, TestStrength\-Reduction, TestAlgebraic\-Simplification & 19 & each rewrite rule; unsound rules absent\\
+ & TestInterpreter & 9 & arithmetic, loops, calls, recursion, dynamic count\\
+ & TestCrossPassIntegration, TestArrays & 12 & all benchmarks under all orderings; array pipeline\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[H]
+\centering\scriptsize\renewcommand{\arraystretch}{1.0}
+\caption{Automated test suite by module and class (continued): language features, back end, and web API}
+\label{tab:tests2}
+\begin{tabular}{L{2.4cm} L{5.0cm} C{0.9cm} L{5.0cm}}
+\toprule
+\textbf{Module} & \textbf{Test class} & \textbf{Cases} & \textbf{What is verified}\\
+\midrule
+\code{test\_new\_features.py}
+ & TestSemanticAnalyzer & 14 & every semantic rule; all benchmarks pass analysis\\
+ & TestElseIf, TestForLoop & 7 & parsing and execution; orderings preserve output\\
+ & TestShortCircuit & 4 & right operand skipped; 0/1 normalization\\
+ & TestGlobals & 7 & cross-function state; DCE never removes stores\\
+ & TestRiscvBackend & 9 & structure, exit code, printing, division by zero, recursion, arrays, globals; all benchmarks match interpreter in the simulator\\
+ & TestErrorHierarchy & 2 & all phase errors share one base class\\
+\midrule
+\code{test\_web.py}
+ & TestCompileEndpoint, TestOptimizeEndpoint & 7 & success and structured error responses\\
+ & TestExamplesEndpoint & 7 & listing, suite classification, doc extraction, path traversal rejected\\
+ & TestBenchmarkEndpoint, TestIndexPage & 4 & 721 results; React and legacy pages served\\
+ & TestSemanticPhase, TestAssemblyField & 6 & semantic errors via API; assembly and mapping endpoints\\
+\bottomrule
+\end{tabular}
+\end{table}

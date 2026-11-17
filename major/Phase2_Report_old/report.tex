@@ -1,0 +1,248 @@
+% ============================================================================
+%  Project Phase - II Report
+%  Benchmarking Phase Ordering Trade-offs in a Custom Compiler Infrastructure
+%  using MiBench
+%
+%  Build:  pdflatex report && pdflatex report && pdflatex report
+%  (or upload the folder to Overleaf; no BibTeX step is required)
+% ============================================================================
+\documentclass[12pt,a4paper,oneside]{report}
+
+% ---------------------------------------------------------------------------
+%  Fill in / verify these before submission
+% ---------------------------------------------------------------------------
+\newcommand{\ProjectTitle}{Benchmarking Phase Ordering Trade-offs in a Custom Compiler Infrastructure using MiBench}
+\newcommand{\ShortTitle}{Benchmarking Phase Ordering Trade-offs in a Custom Compiler Infrastructure}
+\newcommand{\AcademicYear}{2026 - 27}
+\newcommand{\Semester}{VII}
+\newcommand{\StudentA}{Aniket De}          \newcommand{\UsnA}{4SF23CSXXX}
+\newcommand{\StudentB}{Kushal S M}         \newcommand{\UsnB}{4SF23CSXXX}
+\newcommand{\StudentC}{Manas S}            \newcommand{\UsnC}{4SF23CSXXX}
+\newcommand{\StudentD}{Vivek Neeralagi}    \newcommand{\UsnD}{4SF23CSXXX}
+\newcommand{\GuideName}{Dr. Suhas A Bhyratae}
+\newcommand{\GuideDesignation}{Associate Professor}
+\newcommand{\CoordinatorName}{Ms. Prapulla G}
+\newcommand{\CoordinatorDesignation}{Assistant Professor}
+\newcommand{\HodName}{Dr. Mustafa Basthikodi}
+\newcommand{\PrincipalName}{Dr. S. S. Injaganeri}
+
+% ---------------------------------------------------------------------------
+%  Packages
+% ---------------------------------------------------------------------------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[a4paper,left=1.25in,right=1.0in,top=1.0in,bottom=1.0in,headheight=15pt]{geometry}
+\usepackage{setspace}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{float}
+\usepackage{fancyhdr}
+\usepackage{listings}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,fit,calc,backgrounds}
+\usepackage{amsmath,amssymb}
+\usepackage{microtype}
+\usepackage{afterpage}
+\usepackage{ragged2e}
+\usepackage[hidelinks,bookmarksnumbered]{hyperref}
+
+\graphicspath{{figures/}}
+\setstretch{1.12}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{5pt}
+\raggedbottom
+\setlength{\emergencystretch}{1.5em}
+
+% Keep floats near their text and avoid float-only pages
+\renewcommand{\topfraction}{0.9}
+\renewcommand{\bottomfraction}{0.8}
+\renewcommand{\textfraction}{0.1}
+\renewcommand{\floatpagefraction}{0.75}
+\setcounter{topnumber}{3}
+\setcounter{bottomnumber}{2}
+\setcounter{totalnumber}{4}
+
+% ---------------------------------------------------------------------------
+%  Headers and footers (matching the departmental template)
+% ---------------------------------------------------------------------------
+% Body pages: running header and footer (matching the departmental template).
+% Every style below is self-contained because fancyhdr re-executes a style's
+% body each time it is selected; a style that only clears fields would leak.
+\fancypagestyle{main}{%
+  \fancyhf{}
+  \renewcommand{\headrulewidth}{0.4pt}
+  \renewcommand{\footrulewidth}{0.4pt}
+  \fancyhead[L]{\footnotesize\ShortTitle}
+  \fancyhead[R]{\footnotesize\leftmark}
+  \fancyfoot[L]{\footnotesize Department of Computer Science and Engineering, SCEM, Mangaluru}
+  \fancyfoot[R]{\footnotesize Page \thepage}}
+\renewcommand{\chaptermark}[1]{\markboth{Chapter \thechapter}{}}
+
+% Chapter opening pages: page number centred, no header (as in the template)
+\fancypagestyle{plain}{%
+  \fancyhf{}
+  \fancyfoot[C]{\footnotesize\thepage}
+  \renewcommand{\headrulewidth}{0pt}
+  \renewcommand{\footrulewidth}{0pt}}
+
+% Front-matter pages: roman page number centred
+\fancypagestyle{front}{%
+  \fancyhf{}
+  \fancyfoot[C]{\footnotesize\thepage}
+  \renewcommand{\headrulewidth}{0pt}
+  \renewcommand{\footrulewidth}{0pt}}
+
+% Un-numbered back-matter chapters (References, Appendix) keep the header
+\fancypagestyle{backmatter}{%
+  \fancyhf{}
+  \renewcommand{\headrulewidth}{0.4pt}
+  \renewcommand{\footrulewidth}{0.4pt}
+  \fancyhead[L]{\footnotesize\ShortTitle}
+  \fancyhead[R]{\footnotesize\leftmark}
+  \fancyfoot[L]{\footnotesize Department of Computer Science and Engineering, SCEM, Mangaluru}
+  \fancyfoot[R]{\footnotesize Page \thepage}}
+
+% ---------------------------------------------------------------------------
+%  Table of contents naming
+% ---------------------------------------------------------------------------
+\renewcommand{\contentsname}{Table of Contents}
+\renewcommand{\listfigurename}{List of Figures}
+\renewcommand{\listtablename}{List of Tables}
+\renewcommand{\bibname}{References}
+\setcounter{tocdepth}{1}
+\setcounter{secnumdepth}{3}
+
+% ---------------------------------------------------------------------------
+%  Captions, tables, listings
+% ---------------------------------------------------------------------------
+\captionsetup{font=small,labelfont=bf,skip=6pt}
+\renewcommand{\arraystretch}{1.25}
+\newcolumntype{L}[1]{>{\RaggedRight\arraybackslash}p{#1}}
+\newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
+
+\definecolor{codebg}{RGB}{247,247,245}
+\definecolor{codeframe}{RGB}{200,200,196}
+\definecolor{kw}{RGB}{20,70,160}
+\definecolor{cm}{RGB}{110,110,105}
+\definecolor{str}{RGB}{150,50,30}
+
+\lstdefinelanguage{CSubset}{
+  morekeywords={int,if,else,while,for,return,print},
+  sensitive=true,
+  morecomment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  morestring=[b]",
+}
+\lstdefinelanguage{ThreeAC}{
+  morekeywords={func,end,goto,iffalse,if,param,call,return,print,arr,global,param_decl,nop},
+  sensitive=true,
+  morecomment=[l]{\#},
+}
+\lstdefinelanguage{RiscV}{
+  morekeywords={addi,add,sub,mul,div,rem,lw,sw,li,la,j,jal,call,ret,beqz,bnez,slt,slti,seqz,snez,xori,and,or,neg,mv,sb,ecall,slli},
+  sensitive=true,
+  morecomment=[l]{\#},
+}
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  keywordstyle=\color{kw}\bfseries,
+  commentstyle=\color{cm}\itshape,
+  stringstyle=\color{str},
+  backgroundcolor=\color{codebg},
+  frame=single,
+  rulecolor=\color{codeframe},
+  framerule=0.4pt,
+  numbers=left,
+  numberstyle=\tiny\color{cm},
+  numbersep=6pt,
+  breaklines=true,
+  breakatwhitespace=true,
+  showstringspaces=false,
+  tabsize=4,
+  columns=fullflexible,
+  keepspaces=true,
+  xleftmargin=1.2em,
+  aboveskip=8pt,
+  belowskip=8pt,
+  captionpos=b,
+}
+\renewcommand{\lstlistingname}{Listing}
+
+% Tighter lists (no enumitem in the minimal TeX Live used for the reference build)
+\let\oldItemize\itemize
+\renewcommand{\itemize}{\oldItemize\setlength{\itemsep}{1pt}\setlength{\parskip}{2pt}\setlength{\topsep}{3pt}}
+\let\oldEnumerate\enumerate
+\renewcommand{\enumerate}{\oldEnumerate\setlength{\itemsep}{1pt}\setlength{\parskip}{2pt}\setlength{\topsep}{3pt}}
+
+% Short helpers
+\newcommand{\pass}[1]{\textsf{#1}}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\ordering}[1]{\textsf{#1}}
+\newcommand{\fig}[1]{Fig.~\ref{#1}}
+
+% ============================================================================
+\begin{document}
+
+% ---------------------------------------------------------------------------
+%  FRONT MATTER
+% ---------------------------------------------------------------------------
+\pagenumbering{roman}
+\pagestyle{empty}
+\input{chapters/00_cover}
+\input{chapters/00_certificate}
+\input{chapters/00_declaration}
+
+\pagestyle{front}
+\setcounter{page}{1}
+\input{chapters/00_abstract}
+\input{chapters/00_acknowledgement}
+
+\clearpage
+\phantomsection
+\addcontentsline{toc}{chapter}{Table of Contents}
+\tableofcontents
+
+\clearpage
+\phantomsection
+\addcontentsline{toc}{chapter}{List of Figures}
+\listoffigures
+
+\clearpage
+\phantomsection
+\addcontentsline{toc}{chapter}{List of Tables}
+\listoftables
+
+% ---------------------------------------------------------------------------
+%  MAIN MATTER
+% ---------------------------------------------------------------------------
+\clearpage
+\pagenumbering{arabic}
+\pagestyle{main}
+
+\input{chapters/01_introduction}
+\input{chapters/02_literature_survey}
+\input{chapters/03_problem_formulation}
+\input{chapters/04_design_implementation}
+\input{chapters/05_results_discussion}
+\input{chapters/06_conclusion}
+
+% ---------------------------------------------------------------------------
+%  BACK MATTER
+% ---------------------------------------------------------------------------
+\clearpage
+\pagestyle{backmatter}
+\markboth{References}{}
+\input{chapters/07_references}
+
+\appendix
+\renewcommand{\chaptermark}[1]{\markboth{Appendix \thechapter}{}}
+\input{chapters/08_appendix}
+
+\end{document}

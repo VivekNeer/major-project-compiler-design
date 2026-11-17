@@ -1,0 +1,113 @@
+\chapter{Problem Formulation}
+
+\section{Problem Description}
+
+An optimizing compiler applies a sequence of transformation passes to an intermediate representation of a program. Let $P$ denote a program in intermediate form and let $\Pi = \{\pi_1, \pi_2, \ldots, \pi_n\}$ be a set of $n$ optimization passes, each a function that maps a program to a semantically equivalent program. A \emph{phase ordering} is a permutation $\sigma$ of $\{1, \ldots, n\}$, and applying it to $P$ produces
+\[
+  P_\sigma = \pi_{\sigma(n)}\bigl(\pi_{\sigma(n-1)}(\cdots \pi_{\sigma(1)}(P)\cdots)\bigr).
+\]
+Let $m$ be a metric on programs, such as the number of instructions or an estimate of the cycles needed to execute them. The phase-ordering problem asks for the permutation $\sigma^\ast$ that minimizes $m(P_\sigma)$ for a given $P$, or for a fixed $\sigma$ that performs well over a population of programs.
+
+The problem is hard for reasons that are structural rather than incidental. The number of permutations is $n!$, so the space grows faster than any polynomial in $n$. The passes are not commutative: $\pi_i(\pi_j(P))$ and $\pi_j(\pi_i(P))$ are in general different programs, because a transformation changes the very patterns that the other transformation looks for. Nor are the passes idempotent in combination: even though a single pass may reach a fixed point on its own, running it again after another pass has changed the program can find new work. The optimal permutation depends on $P$, so no fixed $\sigma$ is best for every program. And the dependence of $m(P_\sigma)$ on $\sigma$ is not smooth in any useful sense; two permutations that differ in one adjacent swap can produce very different programs, while two permutations that differ in many positions can produce identical ones.
+
+In practice, three further complications appear. First, the metric is not unique. Code size matters for flash-constrained embedded devices, execution time matters for everything else, and the two do not always move together; a transformation that shortens the code may lengthen the critical loop, and one that speeds up the loop may duplicate code. The problem is therefore multi-objective, and its solution is a Pareto front rather than a single point. Second, correctness must be preserved under every ordering. A pass that is correct in the position its author intended may be incorrect in another position if it relies on an invariant that an earlier pass established; a system that permits arbitrary reordering must ensure that every pass is correct on any valid input. Third, the results of an ordering study are only meaningful if the passes are studied on programs that resemble real workloads, which requires a benchmark suite and a principled way of aggregating results across it.
+
+Production compilers sidestep the problem with a fixed pipeline that has been tuned over many years. This is a sound engineering decision, but it leaves several questions unanswered for anyone who is not a maintainer of that compiler. How much does the ordering actually matter for a given set of passes and a given class of programs? Which pairs of passes interact, in which direction, and how strongly? How much of the ordering space is redundant, in the sense that different orderings produce the same result? Is there a simple structural rule that characterizes the good orderings? Does an improvement measured on the intermediate representation survive translation to a real instruction set? These questions can be answered exactly only by enumerating the space, which is impossible at production scale and has been done in the literature only once, for one research compiler.
+
+The project therefore studies a bounded instance of the problem: six classical scalar optimizations on a subset of C, evaluated on fifteen kernels adapted from embedded and numerical benchmark suites, with the ordering space enumerated in full. The bounded instance is chosen so that the answers are complete and inspectable, and so that the infrastructure that produces them is small enough to serve as a teaching tool.
+
+\section{Problem Statement}
+
+Existing compiler infrastructures apply optimization passes in a fixed, hand-tuned order, and the size and complexity of those infrastructures make it impractical to isolate, reorder, and measure individual passes or to enumerate the space of orderings. As a result, the quantitative effect of phase ordering on code size and execution cost is known only approximately, the structure of the ordering space is understood only through sampled search, and students and engineers have no transparent environment in which to observe how optimization passes interact.
+
+The project addresses this by designing and implementing a modular compiler for a subset of C in which every optimization pass is an independent, reorderable, and individually correct transformation on a three-address-code intermediate representation; by building a pass manager that can run any ordering and enumerate all of them; by measuring static code size, an estimated cycle cost, and the dynamic instruction count of every ordering on a suite of fifteen MiBench- and PolyBench-derived kernels; by validating correctness of every optimized program against the unoptimized baseline through execution; by lowering the optimized code to RISC-V RV32IM assembly and validating that as well; and by presenting the entire pipeline, the orderings, and the resulting trade-offs in an interactive web application.
+
+\section{Objectives}
+
+\begin{enumerate}
+  \item To design and implement a complete compiler front end for a subset of C, comprising a lexer, a recursive-descent parser producing an abstract syntax tree, a scope-aware symbol table, and a semantic analyzer that reports all violations in a single pass.
+  \item To define a three-address-code intermediate representation with explicit support for functions, control flow, fixed-size arrays, and global variables, together with an IR generator that translates the syntax tree into it, and an interpreter that executes it.
+  \item To implement six classical optimizations, constant folding, dead code elimination, common subexpression elimination, copy propagation, strength reduction, and algebraic simplification, as independent passes that are correct in any position of any ordering.
+  \item To build a configurable pass manager that runs an arbitrary ordering and enumerates all $6! = 720$ full permutations together with the unoptimized baseline.
+  \item To adapt fifteen benchmark kernels from the MiBench embedded suite and the PolyBench/C numerical suite into the supported subset of C.
+  \item To measure, for every program and every ordering, the static code size, an estimated cycle count based on an embedded-processor cost model, and the dynamic instruction count, and to verify that the program output is unchanged.
+  \item To analyze the results: identify the best and worst orderings per program and overall using geometric-mean aggregation, quantify pairwise pass interactions, determine the equivalence classes of orderings that produce identical outcomes, and characterize the structural rules that distinguish good orderings from bad ones.
+  \item To implement a RISC-V RV32IM assembly back end and an accompanying simulator, and to verify that every benchmark produces the same output when lowered to assembly as when interpreted.
+  \item To develop an interactive web application that exposes every stage of the compiler, allows passes to be reordered by drag and drop, steps through the pipeline with a diff at each stage, displays the generated assembly, and runs the exhaustive ordering exploration in the browser.
+  \item To achieve comprehensive automated test coverage of every component, including an end-to-end test that compiles all benchmarks under all orderings.
+\end{enumerate}
+
+\section{Functional Requirements}
+
+\begin{itemize}
+  \item \textbf{FR-1 Lexical analysis.} The system shall convert source text in the supported C subset into a token stream with line and column information, recognizing keywords, identifiers, integer literals, all supported operators and delimiters, and skipping single-line and block comments. Malformed input shall produce an error that names the offending location.
+  \item \textbf{FR-2 Syntax analysis.} The system shall parse the token stream into an abstract syntax tree according to the grammar in Listing~\ref{lst:grammar}, respecting the six levels of operator precedence, and shall report the first syntax error with its location and the token that was found.
+  \item \textbf{FR-3 Semantic analysis.} The system shall check that every variable is declared before use, that no name is declared twice in one scope, that called functions exist and are called with the correct number of arguments, that no function is defined twice, that arrays are indexed and scalars are not, that a \code{main} function exists, and that global initializers are compile-time constants. All violations in a program shall be collected and reported together.
+  \item \textbf{FR-4 Intermediate code generation.} The system shall translate a semantically valid syntax tree into three-address code, using explicit temporaries and labels, dedicated opcodes for array and global access, and jumping code for short-circuit logical operators.
+  \item \textbf{FR-5 Interpretation.} The system shall execute the intermediate code directly, producing the program's printed output and return value, the total number of instructions executed, and the number of executions of each opcode, with a step limit that prevents non-terminating programs from hanging the system.
+  \item \textbf{FR-6 Optimization passes.} The system shall provide the six passes \pass{CF}, \pass{DCE}, \pass{CSE}, \pass{CP}, \pass{SR}, and \pass{AS}, each as a function from an instruction list to a new instruction list, each preserving program semantics on any valid input regardless of what passes ran before it.
+  \item \textbf{FR-7 Pass ordering.} The system shall accept any ordered list of pass names, validate it, apply the passes in the given order, and describe the ordering in human-readable form. It shall enumerate all full permutations of the six passes together with the empty ordering.
+  \item \textbf{FR-8 Metric collection.} The system shall compute, for any instruction list, the static code size excluding labels and structural markers, an estimated cycle count from a documented per-opcode cost table, and a breakdown of instructions by category.
+  \item \textbf{FR-9 Exhaustive benchmarking.} The system shall compile a program under every ordering, execute each result, record all three metrics, verify that the output matches the baseline, and report the results as a table, as per-program plots, and as a geometric-mean summary across programs.
+  \item \textbf{FR-10 RISC-V code generation.} The system shall translate intermediate code, optimized or not, into RV32IM assembly in GNU syntax for Linux user mode, including a runtime routine that prints integers, and shall provide a mapping from each intermediate instruction to the assembly lines it produced.
+  \item \textbf{FR-11 Interactive web application.} The system shall serve a browser application through which a user can edit or load a program, compile it and inspect tokens, syntax tree, symbols, and intermediate code with error locations highlighted in the editor; arrange the passes in any order and run them, viewing the intermediate code after each stage with a diff and metric deltas; view the assembly side by side with the intermediate code; run all orderings and explore the results in an interactive size-versus-cycles plot; and consult a reference page describing the passes, cost model, and language.
+  \item \textbf{FR-12 Command-line interface.} The system shall provide a command-line tool that compiles a file, optionally with a given pass ordering, prints tokens, syntax tree, intermediate code, and metrics on request, emits assembly, and runs the benchmark on one program or on all benchmark programs.
+\end{itemize}
+
+\section{Non-Functional Requirements}
+
+\begin{itemize}
+  \item \textbf{NFR-1 Correctness.} Every optimized program, under every ordering, shall produce output identical to the unoptimized program. Every program lowered to RISC-V assembly shall produce output identical to the interpreter. These properties shall be enforced by automated tests.
+  \item \textbf{NFR-2 Determinism and reproducibility.} Given the same source and the same ordering, the system shall produce byte-identical intermediate code, assembly, and metrics on every run and on every machine.
+  \item \textbf{NFR-3 Performance.} The exhaustive 721-ordering benchmark of a single program, including interpretation of every result, shall complete in under ten seconds on a contemporary laptop, so that it can be run interactively from the web application. The full benchmark of all fifteen programs shall complete in under one minute.
+  \item \textbf{NFR-4 Transparency and readability.} Each compiler module shall be a single, self-contained source file of a few hundred lines with a module-level description of its algorithm, so that a student can read and understand any component in isolation.
+  \item \textbf{NFR-5 Portability and ease of installation.} The compiler and web server shall run on any platform with Python 3.10 or later and shall require no compiled extensions, no database, and no external services. The web front end shall be pre-built and committed so that a fresh clone runs with a single Python command and no JavaScript toolchain. The application shall work fully offline with no content-delivery-network dependencies.
+  \item \textbf{NFR-6 Usability.} The web application shall be operable with the mouse or with the keyboard alone, shall report compiler errors with the phase, message, and source location, and shall respond to compile and optimize requests within one second for programs of benchmark size.
+  \item \textbf{NFR-7 Maintainability and test coverage.} Every module shall have automated tests; the test suite shall run in under one minute and shall be executed before every change is merged. The code shall follow a consistent style with type annotations throughout.
+  \item \textbf{NFR-8 Extensibility.} Adding a new optimization pass shall require only a new module exporting one function and one line in the pass registry; the pass manager, benchmark, web API, and user interface shall pick it up without further change.
+\end{itemize}
+
+\section{Technical Specifications}
+
+\textbf{Source language}
+\begin{itemize}
+  \item A subset of C: \code{int} type only; integer literals; arithmetic, comparison, and logical operators; unary minus and logical not; assignment as statement and expression.
+  \item Declarations: local and global scalars with optional initializers, fixed-size one-dimensional local arrays with zero initialization, function definitions with integer parameters.
+  \item Statements: expression, block, \code{if}/\code{else}/\code{else if}, \code{while}, \code{for} with optional clauses, \code{return}, and built-in \code{print}.
+  \item Semantics: 32-bit two's-complement integers in the back end and Python integers in the interpreter; division and modulo by zero yield zero in both; short-circuit evaluation of \code{\&\&} and \code{||}.
+\end{itemize}
+
+\textbf{Compiler implementation}
+\begin{itemize}
+  \item Language: Python 3.12 with type annotations and dataclasses; no third-party dependencies in the compiler core.
+  \item Intermediate representation: linear three-address code, 35 opcodes, immutable instruction records, per-instruction def/use analysis.
+  \item Optimization passes: six pure functions; local forward analyses with state reset at control-flow boundaries; fixed-point iteration within constant folding and dead code elimination.
+  \item Back end: RISC-V RV32IM, GNU assembler syntax, Linux user-mode system calls for output and exit, stack-slot allocation with 16-byte-aligned frames.
+\end{itemize}
+
+\textbf{Measurement and visualization}
+\begin{itemize}
+  \item Metrics: static instruction count; weighted cycle estimate (ARM Cortex-M class weights: 1 cycle for simple ALU and copy operations, 3 for multiplication, 12 for division and modulo, 2 for branches and memory access, 5 for call, 3 for return, 10 for output); dynamic instruction count and per-opcode frequency from the interpreter.
+  \item Aggregation: per-program normalization to the baseline; geometric mean across programs.
+  \item Plots: matplotlib 3.11 and NumPy 1.26; seven plot types at 150 dpi.
+\end{itemize}
+
+\textbf{Web application}
+\begin{itemize}
+  \item Back end: FastAPI 0.141 on Uvicorn 0.52 with Pydantic 2 request and response models; seven JSON endpoints; same-origin static file serving.
+  \item Front end: React 19 with TypeScript 6, built with Vite 8; CodeMirror 6 editor with a C language mode and a lint gutter; Chart.js 4 for interactive plots; bundled Inter, JetBrains Mono, and Space Grotesk fonts.
+  \item Legacy front end: a zero-dependency single-file HTML, CSS, and JavaScript page served at a secondary route.
+\end{itemize}
+
+\textbf{Testing and tooling}
+\begin{itemize}
+  \item pytest 9 with 185 test cases across three test modules; an in-repository RV32IM simulator used as a test oracle for the back end.
+  \item Git version control with 54 commits by the team members over February to August 2026; GitHub hosting.
+  \item Development on Linux (Linux Mint 22.2, kernel 6.17) and Windows; Visual Studio Code; Node.js 20 or later for front-end development only.
+\end{itemize}
+
+\textbf{Hardware requirements}
+\begin{itemize}
+  \item Any 64-bit machine with 4 GB of RAM is sufficient to run the compiler, the tests, and the web application. The reference machine used for all reported timings is an AMD Ryzen 7 7435HS laptop with 8 cores, 16 threads, and 24 GB of RAM.
+  \item Optional: a RISC-V cross toolchain (\code{riscv64-linux-gnu-gcc}) and \code{qemu-riscv32} to run the generated assembly on emulated hardware; not required, since the bundled simulator validates the assembly.
+\end{itemize}
