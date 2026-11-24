@@ -397,7 +397,7 @@ Three limitations bound the claims. The cycle metric is a static cost model, not
 This paper studied the Phase Ordering Problem by exhaustive measurement on a small compiler in which six classical passes are block-local, independently reorderable units. All 720 orderings were applied to fifteen MiBench- and PolyBench-derived kernels, and every one of the 10,800 optimized programs was checked against its baseline output. The order of passes matters by a large factor: the best family of orderings reduces static code size by a geometric mean of 35.7\%, estimated cycles by 20.5\%, and executed instructions by 23.2\%, while the worst family, a third of all orderings, reduces code size by 1.3\% and leaves thirteen of the fifteen programs unchanged. The orderings collapse into nine equivalence classes fixed by the relative order of four passes, and the effect is consistent across programs (Friedman $p < 10^{-48}$, $W = 0.88$). The governing rule is that the passes which expose opportunities, Constant Folding and Copy Propagation, must run before the pass that consumes them, Dead Code Elimination, with Common Subexpression Elimination between them. On this pass set one relative order is optimal for every program and all three metrics at once; what varies is how many orderings reach it, from 30 to 360 of 720, with the array kernels least forgiving. Future work is to replace the cost model with cycles measured on RISC-V hardware through the existing back end, to add global passes and loop transformations and test whether the class structure survives, to evaluate unmodified MiBench and PolyBench sources, and to use the exhaustive results as ground truth for learned phase ordering.
 
 % --- REFERENCES ---
-\begin{thebibliography}{33}
+\begin{thebibliography}{27}
 
 \bibitem{ref21}
 D. F. Bacon, S. L. Graham, and O. J. Sharp,
@@ -554,42 +554,6 @@ P. J. Fleming and J. J. Wallace,
 ``How not to lie with statistics: The correct way to summarize benchmark results,''
 \textit{Communications of the ACM}, vol. 29, no. 3, pp. 218--221, 1986.
 \url{https://doi.org/10.1145/5666.5673}
-
-\bibitem{ref5}
-H. Ahmed, M. F. Hyder, M. F. ul Haque, and P. C. Santos,
-``Exploring compiler optimization space for control flow obfuscation,''
-\textit{Computers \& Security}, 2024.
-\url{https://doi.org/10.1016/j.cose.2024.103704}
-
-\bibitem{ref6}
-A. Schmitz \textit{et al.},
-``Parallel pattern compiler for automatic global optimizations,''
-\textit{Parallel Computing}, 2024.
-\url{https://doi.org/10.1016/j.parco.2024.103112}
-
-\bibitem{ref10}
-M. Camilli, A. Janes, and B. Russo,
-``Automated test-based learning and verification of performance models for microservices systems,''
-\textit{Journal of Systems and Software}, vol. 187, 2022.
-\url{https://doi.org/10.1016/j.jss.2022.111225}
-
-\bibitem{ref11}
-S. Zhang, X.-W. Guo, C. Li, Y. Liu, S. Fan, R. Zhao, and C. Yang,
-``A large scale parallel fluid-structure interaction computing platform for simulating structural responses to a detonation shock,''
-\textit{Software: Practice and Experience}, vol. 53, no. 1, pp. 211--240, 2023.
-\url{https://doi.org/10.1002/spe.3051}
-
-\bibitem{ref13}
-M. Tao,
-``Semantic ontology enabled modeling, retrieval and inference for incomplete mobile trajectory data,''
-\textit{Future Generation Computer Systems}, vol. 145, pp. 1--11, 2023.
-\url{https://doi.org/10.1016/j.future.2023.03.012}
-
-\bibitem{ref14}
-F. Fernandes dos Santos, L. Carro, F. Vella, and P. Rech,
-``Assessing the impact of compiler optimizations on GPUs reliability,''
-\textit{ACM Trans. Architecture and Code Optimization}, vol. 21, no. 2, 2024.
-\url{https://doi.org/10.1145/3638249}
 
 \end{thebibliography}
 
