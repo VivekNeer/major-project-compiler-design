@@ -139,11 +139,11 @@ The six passes are textbook transformations \cite{ref18,ref21}; the contribution
 
 \textbf{Dependency modeling and pruning.} Liu et al. model dependences between passes to avoid redundant transformations \cite{ref1}, and Huemer et al. prune low-impact transformations to cut compilation time \cite{ref4}. Both rely on heuristics and on structural assumptions about the pass set.
 
-\textbf{Machine learning.} Rather than relying on fixed pipelines, machine learning techniques extract program features to predict profitable pass sequences. For example, POSET-RL applies reinforcement learning to balance code size against execution time \cite{ref8}, AutoPhase automates phase ordering for high-level synthesis \cite{ref12}, and MiCOMP clusters optimization subsequences to narrow the search \cite{ref15}. Complementary approaches leverage program embeddings \cite{ref9}, predictive ensembles for flag and phase selection \cite{ref17,ref22,ref28,ref29}, and graph-guided iterative searches \cite{ref20}. Other studies restructure the search space itself using dormant information \cite{ref2,ref26}, booster pass chains \cite{ref25}, or targeted searches for globally optimal code \cite{ref3}. These methods improve search efficiency but add training overhead and depend on large datasets \cite{ref8,ref12,ref15}.
+\textbf{Machine learning.} Learned models select passes from program features: POSET-RL uses reinforcement learning to trade code size against execution time \cite{ref8}, AutoPhase learns phase orders for high-level synthesis \cite{ref12}, and MiCOMP learns over optimization subsequences \cite{ref15}. Related work includes program embeddings \cite{ref9}, predictive and ensemble models for flag or phase selection \cite{ref17,ref22,ref28,ref29}, graph-based iterative pass selection \cite{ref20}, and methods that enlarge or restructure the search space through dormant information \cite{ref2,ref26}, booster pass chains \cite{ref25}, or search for globally optimal code \cite{ref3}. These methods improve search efficiency but add training overhead and depend on large datasets \cite{ref8,ref12,ref15}.
 
 \textbf{Production frameworks.} LLVM introduced a modular IR that supports continuous transformation and analysis \cite{ref16}; within such compilers, run-time data \cite{ref23}, comparison of optimization decisions \cite{ref24}, compilation statistics \cite{ref7}, and agile pass pipelines \cite{ref27} have been used to steer optimization. Their pipelines are tightly coupled, which makes pass interactions hard to isolate in a controlled setting \cite{ref16}.
 
-\textbf{Gap.} Most of the work above optimizes for performance and treats the pipeline as a black box. Kulkarni et al. observed that many phase sequences produce identical code and that, for a small pass set, the distinct outcomes can be enumerated exhaustively \cite{ref19}; this study relies on exactly that property. Visualization tools for teaching optimizations \cite{ref30} address transparency but do not measure ordering effects. Table~\ref{tab:lit_review} summarizes the gap addressed here: a small infrastructure in which the trade-off between performance and code size can be measured, rather than estimated, for a given set of passes.
+\textbf{Gap.} Prior studies largely focus on execution speed while treating the compiler pipeline as an opaque black box. Notably, Kulkarni et al. demonstrated that many distinct pass sequences yield identical code, making exhaustive evaluation practical for small pass sets \cite{ref19}---a property our work directly leverages. While educational visualization tools \cite{ref30} improve transparency, they do not measure ordering interactions. Table~\ref{tab:lit_review} highlights the specific gap addressed here: a controlled, lightweight compiler framework in which the trade-offs between code size and runtime performance are directly measured rather than estimated.
 
 \begin{table}[htbp]
 \caption{Comparative Analysis of Related Work}
@@ -245,7 +245,7 @@ int main() {
 }
 \end{lstlisting}
 
-Table~\ref{tab:phase_order_tradeoff} shows the base and 6 sequence orders. The 720 orderings result in 6 unique results. Each sequence has been selected to be executed once. AS can be disregarded as it does not affect the number of instructions. Adding it to the end of a sequence has no effect. The log file identifies which pass reduces instructions. Within Seq~1, the number remains constant at 40 during CF, CSE and CP. It is reduced to 16 at DCE. The facilitating passes do not themselves remove any instructions. They substitute instructions for alternative ones (for example a condensed expression is converted into a constant load, recalculation is converted into a copy and operands are relabelled) and there are instructions which are then not accessed. DCE removes these. When executed alone, DCE only detects the 7 artificially inserted dead instructions. Therefore Seq~6 terminates at 33. When executed after CF but prior to CSE and CP, the sequence terminates at 21 (Seq~4).
+Table~\ref{tab:phase_order_tradeoff} lists the baseline and six orderings. The 720 orderings produce exactly six distinct outcomes on this program, and the six sequences were chosen so that each appears once; AS is omitted because it never changes the instruction count, and appending it leaves every entry unchanged. The per-pass log shows where the reduction happens: under Seq~1 the size stays at 40 through CF, CSE, and CP and drops to 16 at DCE. The enabling passes remove nothing themselves; they replace instructions by equivalents (a folded expression becomes a constant load, a recomputation becomes a copy, an operand is renamed) that leave other instructions unread, and DCE deletes those. Run first, DCE finds only the seven planted dead instructions and the ordering ends at 33 (Seq~6); run after CF but before CSE and CP, it ends at 21 (Seq~4).
 
 \begin{table}[!htbp]
 \centering
@@ -377,11 +377,7 @@ bicg      & PolyBench & 94  & 73  & 22.3 & 15.7 & 15.7 & 30 \\
 }
 \end{table}
 
-The table reads as rules that hold on every program. \textbf{DCE must follow CF and CP:} the eight relative orders in which DCE precedes both form class~9, a third of the space, with a size ratio of 0.987; on thirteen programs these 240 orderings leave the code unchanged, and the 1.3\% they achieve is the planted dead code in two programs. DCE deletes unreferenced values. As all temporaries are scanned in the initial intermediate representation, CF and CP are required to remove these. However, by applying DCE after CF and prior to CP (class~8), approximately one third of the possible optimisation is lost. This is because it is CP that causes unneeded assignments, for example \texttt{sum1 = t18}, to be deleted. Furthermore, applying CF first is superior to CP first (class~1 compared to class~5). CF is able to compute a stable solution for single assignment variables and CP can only work within basic blocks.
-
-Intermediate CSE in the CF and CP sequence produces the most effective optimisations (class~1 compared to classes~2--4). Following CF literal replacement for temporaries, CSE can identify even more frequently used sub-expressions. Then, CP disseminates these new expressions and DCE deletes the original ones, so resulting in a smaller code size.
-
-Programs exhibit identical minor pass ordering dependencies. Re-ordering so that DCE is last causes the mean code size ratio to fall to 0.659 from 0.988. Applying CP and CF early in the process further reduces the ratio to 0.681 and 0.707 from 0.873 and 0.841 respectively. However, there is little difference in the effect of inserting CSE early or late (0.789 and 0.793 respectively). Moreover, neither SR nor AS has an impact on code size (0.791).
+The table reads as rules that hold on every program. \textbf{DCE must follow CF and CP:} the eight relative orders in which DCE precedes both form class~9, a third of the space, with a size ratio of 0.987; on thirteen programs these 240 orderings leave the code unchanged, and the 1.3\% they achieve is the planted dead code in two programs. DCE removes only instructions whose results are unread, and in the baseline IR every temporary is read at least once; CF and CP are what make temporaries unread. \textbf{DCE after CF but before CP (class~8) loses a third of the benefit}, because CP is what makes copies such as \texttt{sum1 = t18} unread. \textbf{CF before CP beats CP before CF} (class~1 against class~5), because CF substitutes through single-assignment variables to a fixed point whereas CP substitutes within a basic block only. \textbf{CSE between CF and CP is best} (class~1 against classes~2 to~4): CSE matches more expressions after CF has replaced temporaries by literals, and the copies CSE creates shrink the code only if CP then propagates them and DCE deletes them. The marginal view agrees: averaged over all programs and orderings, the mean size ratio moves from 0.988 (DCE first) to 0.659 (DCE last), from 0.873 (CP last) to 0.681 (CP first), and from 0.841 (CF last) to 0.707 (CF first); CSE's position barely matters (0.789 against 0.793) and SR and AS have no effect (0.791 in both positions).
 
 \subsection{Statistical Significance}
 \label{sec:stats}
@@ -401,7 +397,7 @@ Three limitations bound the claims. The cycle metric is a static cost model, not
 This paper studied the Phase Ordering Problem by exhaustive measurement on a small compiler in which six classical passes are block-local, independently reorderable units. All 720 orderings were applied to fifteen MiBench- and PolyBench-derived kernels, and every one of the 10,800 optimized programs was checked against its baseline output. The order of passes matters by a large factor: the best family of orderings reduces static code size by a geometric mean of 35.7\%, estimated cycles by 20.5\%, and executed instructions by 23.2\%, while the worst family, a third of all orderings, reduces code size by 1.3\% and leaves thirteen of the fifteen programs unchanged. The orderings collapse into nine equivalence classes fixed by the relative order of four passes, and the effect is consistent across programs (Friedman $p < 10^{-48}$, $W = 0.88$). The governing rule is that the passes which expose opportunities, Constant Folding and Copy Propagation, must run before the pass that consumes them, Dead Code Elimination, with Common Subexpression Elimination between them. On this pass set one relative order is optimal for every program and all three metrics at once; what varies is how many orderings reach it, from 30 to 360 of 720, with the array kernels least forgiving. Future work is to replace the cost model with cycles measured on RISC-V hardware through the existing back end, to add global passes and loop transformations and test whether the class structure survives, to evaluate unmodified MiBench and PolyBench sources, and to use the exhaustive results as ground truth for learned phase ordering.
 
 % --- REFERENCES ---
-\begin{thebibliography}{27}
+\begin{thebibliography}{33}
 
 \bibitem{ref21}
 D. F. Bacon, S. L. Graham, and O. J. Sharp,
@@ -558,6 +554,42 @@ P. J. Fleming and J. J. Wallace,
 ``How not to lie with statistics: The correct way to summarize benchmark results,''
 \textit{Communications of the ACM}, vol. 29, no. 3, pp. 218--221, 1986.
 \url{https://doi.org/10.1145/5666.5673}
+
+\bibitem{ref5}
+H. Ahmed, M. F. Hyder, M. F. ul Haque, and P. C. Santos,
+``Exploring compiler optimization space for control flow obfuscation,''
+\textit{Computers \& Security}, 2024.
+\url{https://doi.org/10.1016/j.cose.2024.103704}
+
+\bibitem{ref6}
+A. Schmitz \textit{et al.},
+``Parallel pattern compiler for automatic global optimizations,''
+\textit{Parallel Computing}, 2024.
+\url{https://doi.org/10.1016/j.parco.2024.103112}
+
+\bibitem{ref10}
+M. Camilli, A. Janes, and B. Russo,
+``Automated test-based learning and verification of performance models for microservices systems,''
+\textit{Journal of Systems and Software}, vol. 187, 2022.
+\url{https://doi.org/10.1016/j.jss.2022.111225}
+
+\bibitem{ref11}
+S. Zhang, X.-W. Guo, C. Li, Y. Liu, S. Fan, R. Zhao, and C. Yang,
+``A large scale parallel fluid-structure interaction computing platform for simulating structural responses to a detonation shock,''
+\textit{Software: Practice and Experience}, vol. 53, no. 1, pp. 211--240, 2023.
+\url{https://doi.org/10.1002/spe.3051}
+
+\bibitem{ref13}
+M. Tao,
+``Semantic ontology enabled modeling, retrieval and inference for incomplete mobile trajectory data,''
+\textit{Future Generation Computer Systems}, vol. 145, pp. 1--11, 2023.
+\url{https://doi.org/10.1016/j.future.2023.03.012}
+
+\bibitem{ref14}
+F. Fernandes dos Santos, L. Carro, F. Vella, and P. Rech,
+``Assessing the impact of compiler optimizations on GPUs reliability,''
+\textit{ACM Trans. Architecture and Code Optimization}, vol. 21, no. 2, 2024.
+\url{https://doi.org/10.1145/3638249}
 
 \end{thebibliography}
 
